@@ -72,7 +72,7 @@ public class BQLParserUtils {
             props.put("metric", pair.b);
 
             props.put("columns", columns);
-            props.put("mapReduce", "sensei.groupBy");
+            props.put("mapReduce", "bql.groupBy");
             props.put("top", top);
             array.put(props);
           }
@@ -95,7 +95,7 @@ public class BQLParserUtils {
         mapReduce.put("function", props.get("mapReduce"));
         mapReduce.put("parameters", props);
       } else {
-        mapReduce.put("function", "sensei.composite");
+        mapReduce.put("function", "bql.composite");
         JSONObject props = new JSONUtil.FastJSONObject();
         props.put("array", array);
         mapReduce.put("parameters", props);

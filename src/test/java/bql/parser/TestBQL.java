@@ -1238,7 +1238,7 @@ public class TestBQL {
         + "WHERE color = 'red' ");
     System.out.println(json);
     assertEquals(
-        "{\"mapReduce\":{\"function\":\"sensei.composite\",\"parameters\":{\"array\":[{\"column\":\"year\",\"mapReduce\":\"sum\"},{\"column\":\"color\",\"mapReduce\":\"sum\"}]}},\"meta\":{\"select_list\":[\"*\"]},\"selections\":[{\"term\":{\"color\":{\"value\":\"red\"}}}]}",
+        "{\"mapReduce\":{\"function\":\"bql.composite\",\"parameters\":{\"array\":[{\"column\":\"year\",\"mapReduce\":\"sum\"},{\"column\":\"color\",\"mapReduce\":\"sum\"}]}},\"meta\":{\"select_list\":[\"*\"]},\"selections\":[{\"term\":{\"color\":{\"value\":\"red\"}}}]}",
         json.toString());
   }
 
@@ -1251,7 +1251,7 @@ public class TestBQL {
         + "WHERE color = 'red' GROUP BY color, groupid");
     System.out.println(json);
     assertEquals(
-        "{\"groupBy\":{\"top\":10},\"mapReduce\":{\"function\":\"sensei.composite\",\"parameters\":{\"array\":[{\"columns\":[\"color\",\"groupid\"],\"function\":\"sum\",\"mapReduce\":\"sensei.groupBy\",\"metric\":\"year\",\"top\":10},{\"columns\":[\"color\",\"groupid\"],\"function\":\"sum\",\"mapReduce\":\"sensei.groupBy\",\"metric\":\"year\",\"top\":10}]}},\"meta\":{\"select_list\":[\"*\"]},\"selections\":[{\"term\":{\"color\":{\"value\":\"red\"}}}]}",
+        "{\"groupBy\":{\"top\":10},\"mapReduce\":{\"function\":\"bql.composite\",\"parameters\":{\"array\":[{\"columns\":[\"color\",\"groupid\"],\"function\":\"sum\",\"mapReduce\":\"bql.groupBy\",\"metric\":\"year\",\"top\":10},{\"columns\":[\"color\",\"groupid\"],\"function\":\"sum\",\"mapReduce\":\"bql.groupBy\",\"metric\":\"year\",\"top\":10}]}},\"meta\":{\"select_list\":[\"*\"]},\"selections\":[{\"term\":{\"color\":{\"value\":\"red\"}}}]}",
         json.toString());
   }
 
@@ -1310,22 +1310,9 @@ public class TestBQL {
     System.out.println("==================================================");
 
     JSONObject json = _compiler.compile("SELECT *" + "FROM cars "
-        + "WHERE color = 'red' EXECUTE(sensei.max, 'column':'year')");
+        + "WHERE color = 'red' EXECUTE(bql.max, 'column':'year')");
     assertEquals(
-        "{\"mapReduce\":{\"function\":\"sensei.max\",\"parameters\":{\"column\":\"year\",\"mapReduce\":\"sensei.max\"}},\"meta\":{\"select_list\":[\"*\"]},\"selections\":[{\"term\":{\"color\":{\"value\":\"red\"}}}]}",
-        json.toString());
-  }
-
-  @Test
-  public void testMapReduceWithComplexParams() throws Exception {
-    System.out.println("testAggregateFunction");
-    System.out.println("==================================================");
-
-    JSONObject json = _compiler
-        .compile(
-            "SELECT * FROM cars WHERE color = 'red' EXECUTE(com.senseidb.search.req.mapred.CountGroupByMapReduce, {'columns':['groupid', 'color']})");
-    assertEquals(
-        "{\"mapReduce\":{\"function\":\"com.senseidb.search.req.mapred.CountGroupByMapReduce\",\"parameters\":{\"columns\":[\"groupid\",\"color\"],\"mapReduce\":\"com.senseidb.search.req.mapred.CountGroupByMapReduce\"}},\"meta\":{\"select_list\":[\"*\"]},\"selections\":[{\"term\":{\"color\":{\"value\":\"red\"}}}]}",
+        "{\"mapReduce\":{\"function\":\"bql.max\",\"parameters\":{\"column\":\"year\",\"mapReduce\":\"bql.max\"}},\"meta\":{\"select_list\":[\"*\"]},\"selections\":[{\"term\":{\"color\":{\"value\":\"red\"}}}]}",
         json.toString());
   }
 }
