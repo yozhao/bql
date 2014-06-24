@@ -45,12 +45,6 @@ public class TestBQL {
   }
 
   @Test
-  public void testDateRange() throws Exception {
-    String bql = "select long_id , city, _grouphitscount FROM ucp ";
-    System.out.println(_compiler.compile(bql).toString());
-  }
-
-  @Test
   public void testBasic1() throws Exception {
     System.out.println("testBasic1");
     System.out.println("==================================================");
@@ -1236,7 +1230,6 @@ public class TestBQL {
 
     JSONObject json = _compiler.compile("SELECT sum(year) , sum(color)" + "FROM cars "
         + "WHERE color = 'red' ");
-    System.out.println(json);
     assertEquals(
         "{\"mapReduce\":{\"function\":\"bql.composite\",\"parameters\":{\"array\":[{\"column\":\"year\",\"mapReduce\":\"sum\"},{\"column\":\"color\",\"mapReduce\":\"sum\"}]}},\"meta\":{\"select_list\":[\"*\"]},\"selections\":[{\"term\":{\"color\":{\"value\":\"red\"}}}]}",
         json.toString());
@@ -1249,7 +1242,6 @@ public class TestBQL {
 
     JSONObject json = _compiler.compile("SELECT sum(year) , sum(year)" + "FROM cars "
         + "WHERE color = 'red' GROUP BY color, groupid");
-    System.out.println(json);
     assertEquals(
         "{\"groupBy\":{\"top\":10},\"mapReduce\":{\"function\":\"bql.composite\",\"parameters\":{\"array\":[{\"columns\":[\"color\",\"groupid\"],\"function\":\"sum\",\"mapReduce\":\"bql.groupBy\",\"metric\":\"year\",\"top\":10},{\"columns\":[\"color\",\"groupid\"],\"function\":\"sum\",\"mapReduce\":\"bql.groupBy\",\"metric\":\"year\",\"top\":10}]}},\"meta\":{\"select_list\":[\"*\"]},\"selections\":[{\"term\":{\"color\":{\"value\":\"red\"}}}]}",
         json.toString());
@@ -1262,7 +1254,6 @@ public class TestBQL {
 
     JSONObject json = _compiler.compile("SELECT sum(year) " + "FROM cars "
         + "WHERE color = 'red' GROUP BY color");
-    System.out.println(json);
     assertEquals(
         "{\"facets\":{\"_sumGroupBy\":{\"expand\":false,\"max\":10,\"minhit\":0,\"properties\":{\"dimension\":\"color\",\"metric\":\"year\"}}},\"groupBy\":{\"top\":10},\"meta\":{\"select_list\":[\"*\"]},\"selections\":[{\"term\":{\"color\":{\"value\":\"red\"}}}]}",
         json.toString());
@@ -1275,7 +1266,6 @@ public class TestBQL {
 
     JSONObject json = _compiler.compile("SELECT count(year) " + "FROM cars "
         + "WHERE color = 'red' GROUP BY color");
-    System.out.println(json);
     assertEquals(
         "{\"facets\":{\"color\":{\"expand\":false,\"max\":10,\"minhit\":0}},\"groupBy\":{\"top\":10},\"meta\":{\"select_list\":[\"*\"]},\"selections\":[{\"term\":{\"color\":{\"value\":\"red\"}}}]}",
         json.toString());
@@ -1287,7 +1277,6 @@ public class TestBQL {
     System.out.println("==================================================");
 
     JSONObject json = _compiler.compile("SELECT min(year) " + "FROM cars " + "WHERE color = 'red'");
-    System.out.println(json);
     assertEquals(
         "{\"mapReduce\":{\"function\":\"min\",\"parameters\":{\"column\":\"year\",\"mapReduce\":\"min\"}},\"meta\":{\"select_list\":[\"*\"]},\"selections\":[{\"term\":{\"color\":{\"value\":\"red\"}}}]}",
         json.toString());
@@ -1300,7 +1289,6 @@ public class TestBQL {
 
     JSONObject json = _compiler.compile("SELECT sum(year) , count(*)" + "FROM cars "
         + "WHERE color = 'red' GROUP BY color, groupid");
-    System.out.println(json);
     assertNotNull(json);
   }
 
