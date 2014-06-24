@@ -216,7 +216,7 @@ public class TestBQL {
     JSONObject json = _compiler.compile("SELECT category " + "FROM cars "
         + "WHERE nonfacet IN ('red')");
     JSONObject expected = new JSONObject(
-        "{\"filter\":{\"terms\":{\"nonfacet\":{\"values\":[\"red\"],\"excludes\":[],\"operator\":\"or\",\"_noOptimize\":true}}}, \"meta\":{\"select_list\":[\"category\"]}}");
+        "{\"filter\":{\"terms\":{\"nonfacet\":{\"values\":[\"red\"],\"excludes\":[],\"operator\":\"or\"}}}, \"meta\":{\"select_list\":[\"category\"]}}");
     assertTrue(_comp.isEquals(json, expected));
   }
 
@@ -279,7 +279,8 @@ public class TestBQL {
     System.out.println("==================================================");
 
     expectedEx.expect(SemanticException.class);
-    expectedEx.expectMessage("Unsupported property was found in an EQUAL predicate for path facet column \"city\": ddd.");
+    expectedEx.expectMessage(
+        "Unsupported property was found in an EQUAL predicate for path facet column \"city\": ddd.");
     try {
       JSONObject json = _compiler.compile("SELECT * " + "FROM cars "
           + "WHERE city = 'china/hongkong' WITH ('strict':false, 'ddd':1)");
@@ -344,7 +345,7 @@ public class TestBQL {
     JSONObject json = _compiler.compile("SELECT category " + "FROM cars "
         + "WHERE QUERY IS 'cool AND moon-roof' " + "AND age = 12 ");
     JSONObject expected = new JSONObject(
-        "{\"query\":{\"query_string\":{\"query\":\"cool AND moon-roof\"}},\"filter\":{\"term\":{\"age\":{\"value\":12,\"_noOptimize\":true}}}, \"meta\":{\"select_list\":[\"category\"]}}");
+        "{\"query\":{\"query_string\":{\"query\":\"cool AND moon-roof\"}},\"filter\":{\"term\":{\"age\":{\"value\":12}}}, \"meta\":{\"select_list\":[\"category\"]}}");
     assertTrue(_comp.isEquals(json, expected));
   }
 
@@ -633,7 +634,8 @@ public class TestBQL {
     System.out.println("==================================================");
 
     expectedEx.expect(SemanticException.class);
-    expectedEx.expectMessage("Incompatible data type was found in an EQUAL predicate for column \"color\".");
+    expectedEx.expectMessage(
+        "Incompatible data type was found in an EQUAL predicate for column \"color\".");
     try {
       JSONObject json = _compiler.compile("SELECT * " + "FROM cars " + "WHERE color = 1");
     } catch (ParseCancellationException ex) {
@@ -648,7 +650,8 @@ public class TestBQL {
     System.out.println("==================================================");
 
     expectedEx.expect(SemanticException.class);
-    expectedEx.expectMessage("Incompatible data type was found in a RANGE predicate for column \"year\".");
+    expectedEx.expectMessage(
+        "Incompatible data type was found in a RANGE predicate for column \"year\".");
     try {
       JSONObject json = _compiler.compile("SELECT * " + "FROM cars " + "WHERE mileage = 111 "
           + "  OR (color IN ('red', 'blue') AND year > 'bbb')");
@@ -664,7 +667,8 @@ public class TestBQL {
     System.out.println("==================================================");
 
     expectedEx.expect(SemanticException.class);
-    expectedEx.expectMessage("Value list for IN predicate of facet \"color\" contains incompatible value(s).");
+    expectedEx.expectMessage(
+        "Value list for IN predicate of facet \"color\" contains incompatible value(s).");
     try {
       JSONObject json = _compiler.compile("SELECT * " + "FROM cars "
           + "WHERE color IN ('red', 123)");
@@ -680,7 +684,8 @@ public class TestBQL {
     System.out.println("==================================================");
 
     expectedEx.expect(SemanticException.class);
-    expectedEx.expectMessage("Value list for CONTAINS ALL predicate of facet \"tags\" contains incompatible value(s).");
+    expectedEx.expectMessage(
+        "Value list for CONTAINS ALL predicate of facet \"tags\" contains incompatible value(s).");
     try {
       JSONObject json = _compiler.compile("SELECT * " + "FROM cars "
           + "WHERE tags CONTAINS ALL ('cool', 123)");
@@ -1317,7 +1322,8 @@ public class TestBQL {
     System.out.println("==================================================");
 
     JSONObject json = _compiler
-        .compile("SELECT * FROM cars WHERE color = 'red' EXECUTE(com.senseidb.search.req.mapred.CountGroupByMapReduce, {'columns':['groupid', 'color']})");
+        .compile(
+            "SELECT * FROM cars WHERE color = 'red' EXECUTE(com.senseidb.search.req.mapred.CountGroupByMapReduce, {'columns':['groupid', 'color']})");
     assertEquals(
         "{\"mapReduce\":{\"function\":\"com.senseidb.search.req.mapred.CountGroupByMapReduce\",\"parameters\":{\"columns\":[\"groupid\",\"color\"],\"mapReduce\":\"com.senseidb.search.req.mapred.CountGroupByMapReduce\"}},\"meta\":{\"select_list\":[\"*\"]},\"selections\":[{\"term\":{\"color\":{\"value\":\"red\"}}}]}",
         json.toString());

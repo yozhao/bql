@@ -1039,9 +1039,6 @@ public class BQLCompilerAnalyzer extends BQLBaseListener {
           dict.put("values", new FastJSONArray());
         }
       }
-      if (_facetInfoMap.get(col) == null) {
-        dict.put("_noOptimize", true);
-      }
       jsonProperty.put(ctx, new FastJSONObject().put("terms", new FastJSONObject().put(col, dict)));
     } catch (JSONException err) {
       throw new ParseCancellationException(new SemanticException(ctx, "JSONException: "
@@ -1113,11 +1110,6 @@ public class BQLCompilerAnalyzer extends BQLBaseListener {
       } else {
         dict.put("excludes", new FastJSONArray());
       }
-
-      if (_facetInfoMap.get(col) == null) {
-        dict.put("_noOptimize", true);
-      }
-
       jsonProperty.put(ctx, new FastJSONObject().put("terms", new FastJSONObject().put(col, dict)));
     } catch (JSONException err) {
       throw new ParseCancellationException(new SemanticException(ctx, "JSONException: "
@@ -1175,10 +1167,6 @@ public class BQLCompilerAnalyzer extends BQLBaseListener {
           new FastJSONObject().put("path", new FastJSONObject().put(col, valObj)));
       } else {
         JSONObject valSpec = new FastJSONObject().put("value", valProperty.get(ctx.value()));
-        if (_facetInfoMap.get(col) == null) {
-          valSpec.put("_noOptimize", true);
-        }
-
         jsonProperty.put(ctx,
           new FastJSONObject().put("term", new FastJSONObject().put(col, valSpec)));
       }
@@ -1222,10 +1210,6 @@ public class BQLCompilerAnalyzer extends BQLBaseListener {
         valObj.put("operator", "or");
         valObj.put("values", new FastJSONArray());
         valObj.put("excludes", new FastJSONArray().put(valProperty.get(ctx.value())));
-        if (_facetInfoMap.get(col) == null) {
-          valObj.put("_noOptimize", true);
-        }
-
         jsonProperty.put(ctx,
           new FastJSONObject().put("terms", new FastJSONObject().put(col, valObj)));
       }
