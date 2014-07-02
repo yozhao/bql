@@ -60,7 +60,7 @@ public class TestBQL {
     System.out.println("testBasic2");
     System.out.println("==================================================");
     // No where clause, with a '*' in SELECT list
-    JSONObject json = _compiler.compile("select * " + "from cars ");
+    JSONObject json = _compiler.compile("select * " + "from cars");
     JSONObject expected = new JSONObject("{\"meta\":{\"select_list\":[\"*\"]}}");
     assertTrue(_comp.isEquals(json, expected));
   }
@@ -119,6 +119,17 @@ public class TestBQL {
     JSONObject json = _compiler.compile("SELECT category " + "FROM cars " + "LIMIT 15, 30");
     JSONObject expected = new JSONObject(
         "{\"from\": 15, \"size\": 30, \"meta\":{\"select_list\":[\"category\"]}}");
+    assertTrue(_comp.isEquals(json, expected));
+  }
+
+  @Test
+  public void testExplain() throws Exception {
+    System.out.println("testExplain");
+    System.out.println("==================================================");
+
+    JSONObject json = _compiler.compile("SELECT category " + "FROM cars EXPLAIN " + "LIMIT 15, 30");
+    JSONObject expected = new JSONObject(
+        "{\"from\": 15, \"size\": 30, \"meta\":{\"select_list\":[\"category\"]}, \"explain\": true}");
     assertTrue(_comp.isEquals(json, expected));
   }
 
@@ -350,7 +361,7 @@ public class TestBQL {
 
     JSONObject json = _compiler.compile("SELECT category " + "FROM cars " + "BROWSE BY color");
     JSONObject expected = new JSONObject(
-        "{\"facets\":{\"color\":{\"max\":10,\"order\":\"hits\",\"expand\":false,\"minhit\":1}}, \"meta\":{\"select_list\":[\"category\"]}}");
+        "{\"facets\":{\"color\":{\"max\":5,\"order\":\"hits\",\"expand\":false,\"minhit\":1}}, \"meta\":{\"select_list\":[\"category\"]}}");
     assertTrue(_comp.isEquals(json, expected));
   }
 
@@ -362,7 +373,7 @@ public class TestBQL {
     JSONObject json = _compiler.compile("SELECT category " + "FROM cars "
         + "BROWSE BY color, price(true, 1, 20, value), year");
     JSONObject expected = new JSONObject(
-        "{\"facets\":{\"price\":{\"max\":20,\"order\":\"val\",\"expand\":true,\"minhit\":1},\"color\":{\"max\":10,\"order\":\"hits\",\"expand\":false,\"minhit\":1},\"year\":{\"max\":10,\"order\":\"hits\",\"expand\":false,\"minhit\":1}}, \"meta\":{\"select_list\":[\"category\"]}}");
+        "{\"facets\":{\"price\":{\"max\":20,\"order\":\"val\",\"expand\":true,\"minhit\":1},\"color\":{\"max\":5,\"order\":\"hits\",\"expand\":false,\"minhit\":1},\"year\":{\"max\":5,\"order\":\"hits\",\"expand\":false,\"minhit\":1}}, \"meta\":{\"select_list\":[\"category\"]}}");
     assertTrue(_comp.isEquals(json, expected));
   }
 
@@ -885,7 +896,6 @@ public class TestBQL {
 
     JSONObject json = _compiler.compile("SELECT * " + "FROM cars "
         + "WHERE long_id IN (5497057336205783040)");
-    System.out.println(">>> json = " + json);
     JSONObject expected = new JSONObject(
         "{\"selections\":[{\"terms\":{\"long_id\":{\"values\":[5497057336205783040],\"excludes\":[],\"operator\":\"or\"}}}],\"meta\":{\"select_list\":[\"*\"]}}");
     assertTrue(_comp.isEquals(json, expected));
@@ -964,7 +974,7 @@ public class TestBQL {
     System.out.println("testSubColumnName");
     System.out.println("==================================================");
 
-    JSONObject json = _compiler.compile("SELECT _srcdata.color, _srcdata.'$time' " + "FROM cars ");
+    JSONObject json = _compiler.compile("SELECT _srcdata.color, _srcdata.'$time' " + "FROM cars");
 
     JSONObject expected = new JSONObject(
         "{\"fetchStored\":true,\"meta\":{\"select_list\":[\"_srcdata.color\",\"_srcdata.$time\"]}}");

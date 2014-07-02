@@ -7,6 +7,7 @@ import java.util.Map;
 
 import bql.BQLLexer;
 import bql.BQLParser;
+import bql.api.Request;
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.BailErrorStrategy;
 import org.antlr.v4.runtime.CommonTokenStream;
@@ -47,10 +48,7 @@ public class BQLCompiler extends AbstractCompiler {
     BQLCompilerAnalyzer analyzer = new BQLCompilerAnalyzer(parser, _facetInfoMap);
     ParseTreeWalker.DEFAULT.walk(analyzer, ret);
     JSONObject json = (JSONObject)analyzer.getJsonProperty(ret);
-
-    // XXX To be removed
     // printTree(ast);
-    // System.out.println(">>> json = " + json.toString());
     return json;
   }
 

@@ -4,6 +4,12 @@ import bql.BQLBaseListener;
 import bql.BQLBaseVisitor;
 import bql.BQLLexer;
 import bql.BQLParser;
+import bql.api.FacetParam;
+import bql.api.FacetSortMode;
+import bql.api.PagingParam;
+import bql.api.Request;
+import bql.api.SortField;
+import bql.api.SortMode;
 import bql.util.BQLParserUtils;
 import bql.util.JSONUtil.FastJSONArray;
 import bql.util.JSONUtil.FastJSONObject;
@@ -40,7 +46,7 @@ public class BQLCompilerAnalyzer extends BQLBaseListener {
   private static final int DEFAULT_REQUEST_OFFSET = 0;
   private static final int DEFAULT_REQUEST_MAX_PER_GROUP = 10;
   private static final int DEFAULT_FACET_MINHIT = 1;
-  private static final int DEFAULT_FACET_MAXHIT = 10;
+  private static final int DEFAULT_FACET_MAXHIT = 5;
   private static final Map<String, String> _fastutilTypeMap;
   private static final Map<String, String> _internalVarMap;
   private static final Map<String, String> _internalStaticVarMap;
@@ -60,6 +66,8 @@ public class BQLCompilerAnalyzer extends BQLBaseListener {
 
   private final Parser _parser;
   private final Map<String, String[]> _facetInfoMap;
+
+  private Request thriftRequest;
 
   private final ParseTreeProperty<Object> jsonProperty = new ParseTreeProperty<Object>();
   private final ParseTreeProperty<Boolean> fetchStoredProperty = new ParseTreeProperty<Boolean>();
@@ -131,7 +139,7 @@ public class BQLCompilerAnalyzer extends BQLBaseListener {
 
     _compatibleFacetTypes = new HashMap<String, Set<String>>();
     _compatibleFacetTypes.put("range",
-      new HashSet<String>(Arrays.asList(new String[] { "simple", "multi" })));
+        new HashSet<String>(Arrays.asList(new String[] { "simple", "multi" })));
   }
 
   public BQLCompilerAnalyzer(Parser parser, Map<String, String[]> facetInfoMap) {
@@ -142,6 +150,10 @@ public class BQLCompilerAnalyzer extends BQLBaseListener {
 
   public Object getJsonProperty(ParseTree node) {
     return jsonProperty.get(node);
+  }
+
+  public Object getThriftRequest() {
+    return thriftRequest;
   }
 
   private String predType(JSONObject pred) {
@@ -158,8 +170,9 @@ public class BQLCompilerAnalyzer extends BQLBaseListener {
     String[] facetInfo = _facetInfoMap.get(field);
     if (facetInfo != null) {
       Set<String> compatibleTypes = _compatibleFacetTypes.get(expectedType);
-      return (expectedType.equals(facetInfo[0]) || "custom".equals(facetInfo[0]) || (compatibleTypes != null && compatibleTypes
-          .contains(facetInfo[0])));
+      return (expectedType.equals(facetInfo[0]) || "custom".equals(facetInfo[0]) || (
+          compatibleTypes != null && compatibleTypes
+              .contains(facetInfo[0])));
     } else {
       return true;
     }
@@ -532,6 +545,7 @@ public class BQLCompilerAnalyzer extends BQLBaseListener {
           "USING RELEVANCE MODEL clause can only appear once."));
     }
 
+    thriftRequest = new Request();
     JSONObject jsonObj = new FastJSONObject();
     JSONArray selections = new FastJSONArray();
     JSONObject filter = new FastJSONObject();
@@ -545,6 +559,7 @@ public class BQLCompilerAnalyzer extends BQLBaseListener {
         metaData.put("select_list", jsonProperty.get(ctx.cols));
         if (fetchStoredProperty.get(ctx.cols)) {
           jsonObj.put("fetchStored", true);
+          thriftRequest.setFetchSrcData(true);
         }
       }
 
@@ -559,25 +574,80 @@ public class BQLCompilerAnalyzer extends BQLBaseListener {
           JSONArray sortArray = new FastJSONArray();
           sortArray.put("relevance");
           jsonObj.put("sort", sortArray);
+          SortField sortField = new SortField();
+          sortField.setMode(SortMode.SCORE);
+          thriftRequest.addToSortFields(sortField);
         } else {
-          jsonObj.put("sort", jsonProperty.get(ctx.order_by));
+          FastJSONArray sortArray = (FastJSONArray) jsonProperty.get(ctx.order_by);
+          jsonObj.put("sort", sortArray);
+          for (int i = 0; i < sortArray.length(); ++i) {
+            JSONObject sortObject = sortArray.getJSONObject(i);
+            Iterator<String> keys = sortObject.keys();
+            String key;
+            while (keys.hasNext()) {
+              key = keys.next();
+              // sort by relevance, mode will be ignored
+              if (key.equalsIgnoreCase("_score")) {
+                SortField sortField = new SortField();
+                sortField.setMode(SortMode.SCORE);
+                thriftRequest.addToSortFields(sortField);
+              } else {
+                SortField sortField = new SortField();
+                sortField.setMode(SortMode.CUSTOM);
+                sortField.setField(key);
+                String order = sortObject.getString(key);
+                if (order.equalsIgnoreCase("desc")) {
+                  sortField.setReverse(true);
+                } else {
+                  sortField.setReverse(false);
+                }
+                thriftRequest.addToSortFields(sortField);
+              }
+            }
+          }
         }
       }
+
       if (ctx.limit != null) {
         jsonObj.put("from", offsetProperty.get(ctx.limit));
         jsonObj.put("size", countProperty.get(ctx.limit));
+        PagingParam pagingParam = new PagingParam();
+        pagingParam.setOffset(offsetProperty.get(ctx.limit));
+        pagingParam.setCount(countProperty.get(ctx.limit));
+        thriftRequest.setPagingParam(pagingParam);
       }
+
       if (ctx.group_by != null) {
         jsonObj.put("groupBy", jsonProperty.get(ctx.group_by));
-
       }
 
       if (ctx.distinct != null) {
         jsonObj.put("distinct", jsonProperty.get(ctx.distinct));
       }
+
       if (ctx.browse_by != null) {
-        jsonObj.put("facets", jsonProperty.get(ctx.browse_by));
+        JSONObject facets = (FastJSONObject) jsonProperty.get(ctx.browse_by);
+        jsonObj.put("facets", facets);
+
+        Iterator<String> keys = facets.keys();
+        String key;
+        Map<String, FacetParam> facetParams = new HashMap<String, FacetParam>();
+        while (keys.hasNext()) {
+          key = keys.next();
+          JSONObject facet = facets.getJSONObject(key);
+          FacetParam facetParam = new FacetParam();
+          if (facet.getString("order").equalsIgnoreCase("val")) {
+            facetParam.setMode(FacetSortMode.VALUE_ASC);
+          } else {
+            facetParam.setMode(FacetSortMode.HITS_DESC);
+          }
+          facetParam.setMaxNumValues(facet.getInt("max"));
+          facetParam.setMinCount(facet.getInt("minhit"));
+          facetParams.put(key, facetParam);
+        }
+        thriftRequest.setFacetParams(facetParams);
       }
+
       if (ctx.executeMapReduce != null) {
         if (ctx.group_by != null) {
           BQLParserUtils.decorateWithMapReduce(jsonObj, aggregationFunctionsProperty.get(ctx.cols),
@@ -586,18 +656,19 @@ public class BQLCompilerAnalyzer extends BQLBaseListener {
               propertiesProperty.get(ctx.executeMapReduce));
         } else {
           BQLParserUtils.decorateWithMapReduce(jsonObj, aggregationFunctionsProperty.get(ctx.cols),
-            null, functionNameProperty.get(ctx.executeMapReduce),
-            propertiesProperty.get(ctx.executeMapReduce));
+              null, functionNameProperty.get(ctx.executeMapReduce),
+              propertiesProperty.get(ctx.executeMapReduce));
         }
       } else {
         if (ctx.group_by != null) {
           BQLParserUtils.decorateWithMapReduce(jsonObj, aggregationFunctionsProperty.get(ctx.cols),
-            (JSONObject) jsonProperty.get(ctx.group_by), null, null);
+              (JSONObject) jsonProperty.get(ctx.group_by), null, null);
         } else {
           BQLParserUtils.decorateWithMapReduce(jsonObj, aggregationFunctionsProperty.get(ctx.cols),
-            null, null, null);
+              null, null, null);
         }
       }
+
       if (ctx.fetch_stored != null) {
         if (!(Boolean) valProperty.get(ctx.fetch_stored)
             && (ctx.cols != null && fetchStoredProperty.get(ctx.cols))) {
@@ -605,9 +676,16 @@ public class BQLCompilerAnalyzer extends BQLBaseListener {
               "FETCHING STORED cannot be false when _srcdata is selected."));
         } else if ((Boolean) valProperty.get(ctx.fetch_stored)) {
           // Default is false
-          jsonObj.put("fetchStored", valProperty.get(ctx.fetch_stored));
+          jsonObj.put("fetchStored", true);
+          thriftRequest.setFetchSrcData(true);
         }
       }
+
+      if (ctx.explain != null && (Boolean) valProperty.get(ctx.explain)) {
+        jsonObj.put("explain", true);
+        thriftRequest.setExplain(true);
+      }
+
       if (ctx.route_param != null) {
         jsonObj.put("routeParam", valProperty.get(ctx.route_param));
       }
@@ -639,12 +717,16 @@ public class BQLCompilerAnalyzer extends BQLBaseListener {
         }
         if (query_string != null) {
           queryPred = new FastJSONObject().put("query_string",
-            query_string.put("relevance", jsonProperty.get(ctx.rel_model)));
+              query_string.put("relevance", jsonProperty.get(ctx.rel_model)));
         } else {
           queryPred = new FastJSONObject().put("query_string", new FastJSONObject()
               .put("query", "").put("relevance", jsonProperty.get(ctx.rel_model)));
         }
         jsonObj.put("query", queryPred);
+
+        if (query_string != null) {
+          thriftRequest.setQueryString(query_string.getString("query"));
+        }
       }
     } catch (JSONException err) {
       throw new ParseCancellationException(new SemanticException(ctx, "JSONException: "
@@ -675,8 +757,8 @@ public class BQLCompilerAnalyzer extends BQLBaseListener {
     for (BQLParser.Aggregation_functionContext agrFunction : ctx.aggregation_function()) {
       aggregationFunctionsProperty.get(ctx)
           .add(
-            new Pair<String, String>(functionProperty.get(agrFunction), columnProperty
-                .get(agrFunction)));
+              new Pair<String, String>(functionProperty.get(agrFunction), columnProperty
+                  .get(agrFunction)));
     }
   }
 
@@ -835,7 +917,7 @@ public class BQLCompilerAnalyzer extends BQLBaseListener {
         String[] facetInfo = _facetInfoMap.get(col);
         if (facetInfo != null
             && (facetInfo[0].equals("range") || facetInfo[0].equals("multi") || facetInfo[0]
-                .equals("path"))) {
+            .equals("path"))) {
           // TODO: could this be more localized?
           throw new ParseCancellationException(new SemanticException(ctx,
               "Range/multi/path facet, \"" + col + "\", cannot be used in the DISTINCT clause."));
@@ -907,9 +989,9 @@ public class BQLCompilerAnalyzer extends BQLBaseListener {
 
     try {
       specProperty.put(
-        ctx,
-        new FastJSONObject().put("expand", expand).put("minhit", minhit).put("max", max)
-            .put("order", orderBy));
+          ctx,
+          new FastJSONObject().put("expand", expand).put("minhit", minhit).put("max", max)
+              .put("order", orderBy));
     } catch (JSONException err) {
       throw new ParseCancellationException(new SemanticException(ctx, "JSONException: "
           + err.getMessage()));
@@ -918,6 +1000,11 @@ public class BQLCompilerAnalyzer extends BQLBaseListener {
 
   @Override
   public void exitFetching_stored_clause(BQLParser.Fetching_stored_clauseContext ctx) {
+    valProperty.put(ctx, ctx.FALSE().isEmpty());
+  }
+
+  @Override
+  public void exitExplain_clause(BQLParser.Explain_clauseContext ctx) {
     valProperty.put(ctx, ctx.FALSE().isEmpty());
   }
 
@@ -1129,21 +1216,21 @@ public class BQLCompilerAnalyzer extends BQLBaseListener {
       String[] facetInfo = _facetInfoMap.get(col);
       if (facetInfo != null && facetInfo[0].equals("range")) {
         jsonProperty.put(
-          ctx,
-          new FastJSONObject().put(
-            "range",
+            ctx,
             new FastJSONObject().put(
-              col,
-              new FastJSONObject().put("from", valProperty.get(ctx.value()))
-                  .put("to", valProperty.get(ctx.value())).put("include_lower", true)
-                  .put("include_upper", true))));
+                "range",
+                new FastJSONObject().put(
+                    col,
+                    new FastJSONObject().put("from", valProperty.get(ctx.value()))
+                        .put("to", valProperty.get(ctx.value())).put("include_lower", true)
+                        .put("include_upper", true))));
       } else if (facetInfo != null && facetInfo[0].equals("path")) {
         JSONObject valObj = new FastJSONObject();
         valObj.put("value", valProperty.get(ctx.value()));
         if (ctx.props != null) {
           JSONObject propsJson = (JSONObject) jsonProperty.get(ctx.props);
           Iterator<?> itr;
-          for (itr = propsJson.keys(); itr.hasNext();) {
+          for (itr = propsJson.keys(); itr.hasNext(); ) {
             String key = (String) itr.next();
             if (key.equals("strict") || key.equals("depth")) {
               valObj.put(key, propsJson.get(key));
@@ -1164,11 +1251,11 @@ public class BQLCompilerAnalyzer extends BQLBaseListener {
         }
 
         jsonProperty.put(ctx,
-          new FastJSONObject().put("path", new FastJSONObject().put(col, valObj)));
+            new FastJSONObject().put("path", new FastJSONObject().put(col, valObj)));
       } else {
         JSONObject valSpec = new FastJSONObject().put("value", valProperty.get(ctx.value()));
         jsonProperty.put(ctx,
-          new FastJSONObject().put("term", new FastJSONObject().put(col, valSpec)));
+            new FastJSONObject().put("term", new FastJSONObject().put(col, valSpec)));
       }
     } catch (JSONException err) {
       throw new ParseCancellationException(new SemanticException(ctx, "JSONException: "
@@ -1189,19 +1276,20 @@ public class BQLCompilerAnalyzer extends BQLBaseListener {
       if (facetInfo != null && facetInfo[0].equals("range")) {
         JSONObject left = new FastJSONObject()
             .put(
-              "range",
-              new FastJSONObject().put(
-                col,
-                new FastJSONObject().put("to", valProperty.get(ctx.value())).put("include_upper",
-                  false)));
+                "range",
+                new FastJSONObject().put(
+                    col,
+                    new FastJSONObject().put("to", valProperty.get(ctx.value()))
+                        .put("include_upper",
+                            false)));
         JSONObject right = new FastJSONObject().put(
-          "range",
-          new FastJSONObject().put(
-            col,
-            new FastJSONObject().put("from", valProperty.get(ctx.value())).put("include_lower",
-              false)));
+            "range",
+            new FastJSONObject().put(
+                col,
+                new FastJSONObject().put("from", valProperty.get(ctx.value())).put("include_lower",
+                    false)));
         jsonProperty.put(ctx,
-          new FastJSONObject().put("or", new FastJSONArray().put(left).put(right)));
+            new FastJSONObject().put("or", new FastJSONArray().put(left).put(right)));
       } else if (facetInfo != null && facetInfo[0].equals("path")) {
         throw new ParseCancellationException(new SemanticException(ctx.NOT_EQUAL(),
             "NOT EQUAL predicate is not supported for path facets (column \"" + col + "\")."));
@@ -1211,7 +1299,7 @@ public class BQLCompilerAnalyzer extends BQLBaseListener {
         valObj.put("values", new FastJSONArray());
         valObj.put("excludes", new FastJSONArray().put(valProperty.get(ctx.value())));
         jsonProperty.put(ctx,
-          new FastJSONObject().put("terms", new FastJSONObject().put(col, valObj)));
+            new FastJSONObject().put("terms", new FastJSONObject().put(col, valObj)));
       }
     } catch (JSONException err) {
       throw new ParseCancellationException(new SemanticException(ctx, "JSONException: "
@@ -1224,9 +1312,9 @@ public class BQLCompilerAnalyzer extends BQLBaseListener {
     try {
       String orig = unescapeStringLiteral(ctx.STRING_LITERAL());
       jsonProperty.put(
-        ctx,
-        new FastJSONObject().put("query",
-          new FastJSONObject().put("query_string", new FastJSONObject().put("query", orig))));
+          ctx,
+          new FastJSONObject().put("query",
+              new FastJSONObject().put("query_string", new FastJSONObject().put("query", orig))));
     } catch (JSONException err) {
       throw new ParseCancellationException(new SemanticException(ctx, "JSONException: "
           + err.getMessage()));
@@ -1242,7 +1330,7 @@ public class BQLCompilerAnalyzer extends BQLBaseListener {
     }
 
     if (!verifyFieldDataType(col, ctx,
-      new Object[] { valProperty.get(ctx.val1), valProperty.get(ctx.val2) })) {
+        new Object[] { valProperty.get(ctx.val1), valProperty.get(ctx.val2) })) {
       ParseTree errorNode = getInvalidValue(ctx);
       throw new ParseCancellationException(new SemanticException(errorNode,
           "Incompatible data type was found in a BETWEEN predicate for column \"" + col + "\"."));
@@ -1251,22 +1339,23 @@ public class BQLCompilerAnalyzer extends BQLBaseListener {
     try {
       if (ctx.not == null) {
         jsonProperty.put(
-          ctx,
-          new FastJSONObject().put(
-            "range",
+            ctx,
             new FastJSONObject().put(
-              col,
-              new FastJSONObject().put("from", valProperty.get(ctx.val1))
-                  .put("to", valProperty.get(ctx.val2)).put("include_lower", true)
-                  .put("include_upper", true))));
+                "range",
+                new FastJSONObject().put(
+                    col,
+                    new FastJSONObject().put("from", valProperty.get(ctx.val1))
+                        .put("to", valProperty.get(ctx.val2)).put("include_lower", true)
+                        .put("include_upper", true))));
       } else {
         JSONObject range1 = new FastJSONObject().put("range", new FastJSONObject().put(col,
-          new FastJSONObject().put("to", valProperty.get(ctx.val1)).put("include_upper", false)));
+            new FastJSONObject().put("to", valProperty.get(ctx.val1)).put("include_upper", false)));
         JSONObject range2 = new FastJSONObject().put("range", new FastJSONObject().put(col,
-          new FastJSONObject().put("from", valProperty.get(ctx.val2)).put("include_lower", false)));
+            new FastJSONObject().put("from", valProperty.get(ctx.val2))
+                .put("include_lower", false)));
 
         jsonProperty.put(ctx,
-          new FastJSONObject().put("or", new FastJSONArray().put(range1).put(range2)));
+            new FastJSONObject().put("or", new FastJSONArray().put(range1).put(range2)));
       }
     } catch (JSONException err) {
       throw new ParseCancellationException(new SemanticException(ctx, "JSONException: "
@@ -1290,18 +1379,18 @@ public class BQLCompilerAnalyzer extends BQLBaseListener {
     try {
       if (ctx.op.getText().charAt(0) == '>') {
         jsonProperty.put(
-          ctx,
-          new FastJSONObject().put("range", new FastJSONObject().put(
-            col,
-            new FastJSONObject().put("from", valProperty.get(ctx.val)).put("include_lower",
-              ">=".equals(ctx.op.getText())))));
+            ctx,
+            new FastJSONObject().put("range", new FastJSONObject().put(
+                col,
+                new FastJSONObject().put("from", valProperty.get(ctx.val)).put("include_lower",
+                    ">=".equals(ctx.op.getText())))));
       } else {
         jsonProperty.put(
-          ctx,
-          new FastJSONObject().put("range", new FastJSONObject().put(
-            col,
-            new FastJSONObject().put("to", valProperty.get(ctx.val)).put("include_upper",
-              "<=".equals(ctx.op.getText())))));
+            ctx,
+            new FastJSONObject().put("range", new FastJSONObject().put(
+                col,
+                new FastJSONObject().put("to", valProperty.get(ctx.val)).put("include_upper",
+                    "<=".equals(ctx.op.getText())))));
       }
     } catch (JSONException err) {
       throw new ParseCancellationException(new SemanticException(ctx, "JSONException: "
@@ -1321,22 +1410,22 @@ public class BQLCompilerAnalyzer extends BQLBaseListener {
       try {
         if (ctx.NOT() == null) {
           jsonProperty.put(
-            ctx,
-            new FastJSONObject().put(
-              "range",
+              ctx,
               new FastJSONObject().put(
-                col,
-                new FastJSONObject().put("from", valProperty.get(ctx.time_span())).put(
-                  "include_lower", false))));
+                  "range",
+                  new FastJSONObject().put(
+                      col,
+                      new FastJSONObject().put("from", valProperty.get(ctx.time_span())).put(
+                          "include_lower", false))));
         } else {
           jsonProperty.put(
-            ctx,
-            new FastJSONObject().put(
-              "range",
+              ctx,
               new FastJSONObject().put(
-                col,
-                new FastJSONObject().put("to", valProperty.get(ctx.time_span())).put(
-                  "include_upper", true))));
+                  "range",
+                  new FastJSONObject().put(
+                      col,
+                      new FastJSONObject().put("to", valProperty.get(ctx.time_span())).put(
+                          "include_upper", true))));
         }
       } catch (JSONException err) {
         throw new ParseCancellationException(new SemanticException(ctx, "JSONException: "
@@ -1352,22 +1441,22 @@ public class BQLCompilerAnalyzer extends BQLBaseListener {
       try {
         if (ctx.since != null && ctx.NOT() == null || ctx.since == null && ctx.NOT() != null) {
           jsonProperty.put(
-            ctx,
-            new FastJSONObject().put(
-              "range",
+              ctx,
               new FastJSONObject().put(
-                col,
-                new FastJSONObject().put("from", valProperty.get(ctx.time_expr())).put(
-                  "include_lower", false))));
+                  "range",
+                  new FastJSONObject().put(
+                      col,
+                      new FastJSONObject().put("from", valProperty.get(ctx.time_expr())).put(
+                          "include_lower", false))));
         } else {
           jsonProperty.put(
-            ctx,
-            new FastJSONObject().put(
-              "range",
+              ctx,
               new FastJSONObject().put(
-                col,
-                new FastJSONObject().put("to", valProperty.get(ctx.time_expr())).put(
-                  "include_upper", false))));
+                  "range",
+                  new FastJSONObject().put(
+                      col,
+                      new FastJSONObject().put("to", valProperty.get(ctx.time_expr())).put(
+                          "include_upper", false))));
         }
       } catch (JSONException err) {
         throw new ParseCancellationException(new SemanticException(ctx, "JSONException: "
@@ -1510,16 +1599,16 @@ public class BQLCompilerAnalyzer extends BQLBaseListener {
 
       String orig = unescapeStringLiteral(ctx.STRING_LITERAL());
       jsonProperty.put(
-        ctx,
-        new FastJSONObject().put(
-          "query",
-          new FastJSONObject().put("query_string",
-            new FastJSONObject().put("fields", cols).put("query", orig))));
+          ctx,
+          new FastJSONObject().put(
+              "query",
+              new FastJSONObject().put("query_string",
+                  new FastJSONObject().put("fields", cols).put("query", orig))));
       if (ctx.NOT() != null) {
         jsonProperty.put(
-          ctx,
-          new FastJSONObject().put("bool",
-            new FastJSONObject().put("must_not", jsonProperty.get(ctx))));
+            ctx,
+            new FastJSONObject().put("bool",
+                new FastJSONObject().put("must_not", jsonProperty.get(ctx))));
       }
     } catch (JSONException err) {
       throw new ParseCancellationException(new SemanticException(ctx, "JSONException: "
@@ -1540,14 +1629,14 @@ public class BQLCompilerAnalyzer extends BQLBaseListener {
     String likeString = orig.replace('%', '*').replace('_', '?');
     try {
       jsonProperty.put(
-        ctx,
-        new FastJSONObject().put("query",
-          new FastJSONObject().put("wildcard", new FastJSONObject().put(col, likeString))));
+          ctx,
+          new FastJSONObject().put("query",
+              new FastJSONObject().put("wildcard", new FastJSONObject().put(col, likeString))));
       if (ctx.NOT() != null) {
         jsonProperty.put(
-          ctx,
-          new FastJSONObject().put("bool",
-            new FastJSONObject().put("must_not", jsonProperty.get(ctx))));
+            ctx,
+            new FastJSONObject().put("bool",
+                new FastJSONObject().put("must_not", jsonProperty.get(ctx))));
       }
     } catch (JSONException err) {
       throw new ParseCancellationException(new SemanticException(ctx, "JSONException: "
@@ -1562,9 +1651,9 @@ public class BQLCompilerAnalyzer extends BQLBaseListener {
       jsonProperty.put(ctx, new FastJSONObject().put("isNull", col));
       if (ctx.NOT() != null) {
         jsonProperty.put(
-          ctx,
-          new FastJSONObject().put("bool",
-            new FastJSONObject().put("must_not", jsonProperty.get(ctx))));
+            ctx,
+            new FastJSONObject().put("bool",
+                new FastJSONObject().put("must_not", jsonProperty.get(ctx))));
       }
     } catch (JSONException err) {
       throw new ParseCancellationException(new SemanticException(ctx, "JSONException: "
@@ -1783,7 +1872,7 @@ public class BQLCompilerAnalyzer extends BQLBaseListener {
     for (BQLParser.Formal_parameter_declContext decl : ctx.formal_parameter_decl()) {
       try {
         processRelevanceModelParam(json, params, typeNameProperty.get(decl),
-          varNameProperty.get(decl), decl.variable_declarator_id());
+            varNameProperty.get(decl), decl.variable_declarator_id());
       } catch (JSONException err) {
         throw new ParseCancellationException(new SemanticException(ctx, "JSONException: "
             + err.getMessage()));
@@ -2057,11 +2146,11 @@ public class BQLCompilerAnalyzer extends BQLBaseListener {
 
       String orig = unescapeStringLiteral(ctx.STRING_LITERAL());
       paramProperty.put(
-        ctx,
-        new FastJSONObject().put(
-          orig,
-          new FastJSONObject().put("type", paramTypeProperty.get(ctx.facet_param_type())).put(
-            "values", valArray)));
+          ctx,
+          new FastJSONObject().put(
+              orig,
+              new FastJSONObject().put("type", paramTypeProperty.get(ctx.facet_param_type())).put(
+                  "values", valArray)));
     } catch (JSONException err) {
       throw new ParseCancellationException(new SemanticException(ctx, "JSONException: "
           + err.getMessage()));

@@ -120,6 +120,7 @@ BNF Grammar for BQL
                       | <execute_clause>
                       | <browse_by_clause>
                       | <fetching_stored_clause>
+                      | <explain_clause>
                       | <route_by_clause>
                       | <relevance_model_clause>
 
@@ -166,6 +167,10 @@ BNF Grammar for BQL
 <fetching_stored_clause> ::= FETCHING STORED [<fetching_flag>]
 
 <fetching_flag> ::= TRUE | FALSE
+
+<explain_clause> ::= EXPLAIN [<explain_flag>]
+
+<explain_flag> ::= TRUE | FALSE
 
 <route_by_clause> ::= ROUTE BY <quoted_string>
 
@@ -536,6 +541,7 @@ select_stmt
         |   executeMapReduce = execute_clause
         |   browse_by = browse_by_clause
         |   fetch_stored = fetching_stored_clause
+        |   explain = explain_clause
         |   route_param = route_by_clause
         |   rel_model = relevance_model_clause
         )*
@@ -641,6 +647,13 @@ facet_spec
 
 fetching_stored_clause
     :   FETCHING STORED
+        (   TRUE
+        |   FALSE
+        )*
+    ;
+
+explain_clause
+    :   EXPLAIN
         (   TRUE
         |   FALSE
         )*
@@ -1396,6 +1409,7 @@ ELSE : [Ee][Ll][Ss][Ee] ;
 END : [Ee][Nn][Dd] ;
 EXCEPT : [Ee][Xx][Cc][Ee][Pp][Tt] ;
 EXECUTE : [Ee][Xx][Ee][Cc][Uu][Tt][Ee] ;
+EXPLAIN : [Ee][Xx][Pp][Ll][Aa][Ii][Nn] ;
 FACET : [Ff][Aa][Cc][Ee][Tt] ;
 FALSE : [Ff][Aa][Ll][Ss][Ee] ;
 FETCHING : [Ff][Ee][Tt][Cc][Hh][Ii][Nn][Gg] ;
