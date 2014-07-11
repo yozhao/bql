@@ -186,12 +186,6 @@ public class JSONUtil {
       return _inner.keySet().iterator();
     }
 
-    @SuppressWarnings({ "unchecked", "rawtypes" })
-    @Override
-    public Iterator<?> sortedKeys() {
-      return new TreeSet(_inner.keySet()).iterator();
-    }
-
     /**
      * Get the number of keys stored in the JSONObject.
      *

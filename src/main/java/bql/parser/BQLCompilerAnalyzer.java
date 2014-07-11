@@ -7,9 +7,12 @@ import bql.BQLParser;
 import bql.api.FacetParam;
 import bql.api.FacetSortMode;
 import bql.api.PagingParam;
+import bql.api.Query;
 import bql.api.Request;
 import bql.api.SortField;
 import bql.api.SortMode;
+import bql.api.StringQuery;
+import bql.api.WildcardQuery;
 import bql.util.BQLParserUtils;
 import bql.util.JSONUtil.FastJSONArray;
 import bql.util.JSONUtil.FastJSONObject;
@@ -280,6 +283,7 @@ public class BQLCompilerAnalyzer extends BQLBaseListener {
         } else if (pred.has("and") || pred.has("or") || pred.has("isNull")) {
           filter_list.put(pred);
         } else {
+/*
           String[] facetInfo = _facetInfoMap.get(predField(pred));
           if (facetInfo != null) {
             if ("range".equals(predType(pred)) && !"range".equals(facetInfo[0])) {
@@ -288,8 +292,9 @@ public class BQLCompilerAnalyzer extends BQLBaseListener {
               selections.put(pred);
             }
           } else {
-            filter_list.put(pred);
-          }
+*/
+          filter_list.put(pred);
+  //        }
         }
       }
       if (filter_list.length() > 1) {
@@ -300,6 +305,7 @@ public class BQLCompilerAnalyzer extends BQLBaseListener {
     } else if (where.has("or") || where.has("isNull")) {
       filter.put("filter", where);
     } else {
+/*
       String[] facetInfo = _facetInfoMap.get(predField(where));
       if (facetInfo != null) {
         if ("range".equals(predType(where)) && !"range".equals(facetInfo[0])) {
@@ -308,9 +314,48 @@ public class BQLCompilerAnalyzer extends BQLBaseListener {
           selections.put(where);
         }
       } else {
-        filter.put("filter", where);
-      }
+      */
+      filter.put("filter", where);
+      //}
     }
+  }
+
+  private Query extractQuery(JSONObject queryPred) throws JSONException {
+    Iterator<String> iter = queryPred.keys();
+    if (!iter.hasNext()) {
+      return null;
+    }
+    ;
+    String type = iter.next();
+    // String query
+    if (type.equalsIgnoreCase("query_string")) {
+      StringQuery stringQuery = new StringQuery();
+      JSONObject jsonQuery = queryPred.getJSONObject(type);
+      String query = jsonQuery.getString("query");
+      stringQuery.setQuery(query);
+      if (jsonQuery.has("fields")) {
+        JSONArray fieldArray = jsonQuery.getJSONArray("fields");
+        List<String> fields = new ArrayList<String>();
+        for (int i = 0; i < fieldArray.length(); ++i) {
+          fields.add(fieldArray.getString(i));
+        }
+        stringQuery.setFields(fields);
+      }
+      return new Query().setStringQuery(stringQuery);
+    }
+    // wildcard query
+    if (type.equalsIgnoreCase("wildcard")) {
+      JSONObject jsonQuery = queryPred.getJSONObject(type);
+      Iterator<String> fieldIter = jsonQuery.keys();
+      String field = fieldIter.next();
+      String query = jsonQuery.getString(field);
+      WildcardQuery wildcardQuery = new WildcardQuery();
+      wildcardQuery.setQuery(query);
+      wildcardQuery.setField(field);
+      return new Query().setWildcardQuery(wildcardQuery);
+    }
+    // don't support other types now
+    return null;
   }
 
   private int compareValues(Object v1, Object v2) {
@@ -695,13 +740,19 @@ public class BQLCompilerAnalyzer extends BQLBaseListener {
         JSONObject queryPred = query.optJSONObject("query");
         if (queryPred != null) {
           jsonObj.put("query", queryPred);
+          Query thriftQuery = extractQuery(queryPred);
+          thriftRequest.setQuery(thriftQuery);
         }
+        /*
         if (selections.length() > 0) {
           jsonObj.put("selections", selections);
+          System.out.println("selections: " + selections);
         }
+        */
         JSONObject f = filter.optJSONObject("filter");
         if (f != null) {
           jsonObj.put("filter", f);
+          System.out.println("filter:" + filter);
         }
       }
 
@@ -723,10 +774,6 @@ public class BQLCompilerAnalyzer extends BQLBaseListener {
               .put("query", "").put("relevance", jsonProperty.get(ctx.rel_model)));
         }
         jsonObj.put("query", queryPred);
-
-        if (query_string != null) {
-          thriftRequest.setQueryString(query_string.getString("query"));
-        }
       }
     } catch (JSONException err) {
       throw new ParseCancellationException(new SemanticException(ctx, "JSONException: "
