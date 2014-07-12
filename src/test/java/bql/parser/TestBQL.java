@@ -174,7 +174,7 @@ public class TestBQL {
 
     JSONObject json = _compiler.compile("SELECT category " + "FROM cars " + "WHERE year = 1999");
     JSONObject expected = new JSONObject(
-        "{\"filter\":[{\"range\":{\"year\":{\"to\":1999,\"include_lower\":true,\"include_upper\":true,\"from\":1999}}}], \"meta\":{\"select_list\":[\"category\"]}}");
+        "{\"filter\":{\"range\":{\"year\":{\"to\":1999,\"include_lower\":true,\"include_upper\":true,\"from\":1999}}}, \"meta\":{\"select_list\":[\"category\"]}}");
     assertTrue(_comp.isEquals(json, expected));
   }
 
@@ -186,7 +186,7 @@ public class TestBQL {
     JSONObject json = _compiler
         .compile("SELECT category " + "FROM cars " + "WHERE price = 1500.99");
     JSONObject expected = new JSONObject(
-        "{\"filter\":[{\"range\":{\"price\":{\"to\":1500.99,\"include_lower\":true,\"include_upper\":true,\"from\":1500.99}}}], \"meta\":{\"select_list\":[\"category\"]}}");
+        "{\"filter\":{\"range\":{\"price\":{\"to\":1500.99,\"include_lower\":true,\"include_upper\":true,\"from\":1500.99}}}, \"meta\":{\"select_list\":[\"category\"]}}");
     assertTrue(_comp.isEquals(json, expected));
   }
 
@@ -197,7 +197,7 @@ public class TestBQL {
 
     JSONObject json = _compiler.compile("SELECT category " + "FROM cars " + "WHERE color = 'red'");
     JSONObject expected = new JSONObject(
-        "{\"filter\": [{\"term\": {\"color\": {\"value\": \"red\"}}}], \"meta\":{\"select_list\":[\"category\"]}}");
+        "{\"filter\": {\"term\": {\"color\": {\"value\": \"red\"}}}, \"meta\":{\"select_list\":[\"category\"]}}");
     assertTrue(_comp.isEquals(json, expected));
   }
 
@@ -209,7 +209,7 @@ public class TestBQL {
     JSONObject json = _compiler.compile("SELECT category " + "FROM cars "
         + "WHERE color IN ('red', 'blue', 'yellow')");
     JSONObject expected = new JSONObject(
-        "{\"filter\":[{\"terms\":{\"color\":{\"values\":[\"red\",\"blue\",\"yellow\"],\"excludes\":[],\"operator\":\"or\"}}}], \"meta\":{\"select_list\":[\"category\"]}}");
+        "{\"filter\":{\"terms\":{\"color\":{\"values\":[\"red\",\"blue\",\"yellow\"],\"excludes\":[],\"operator\":\"or\"}}}, \"meta\":{\"select_list\":[\"category\"]}}");
     assertTrue(_comp.isEquals(json, expected));
   }
 
@@ -249,7 +249,7 @@ public class TestBQL {
     JSONObject json = _compiler.compile("SELECT category " + "FROM cars "
         + "WHERE color NOT IN ('red', 'blue', 'yellow') EXCEPT ('black', 'green')");
     JSONObject expected = new JSONObject(
-        "{\"filter\":[{\"terms\":{\"color\":{\"excludes\":[\"red\",\"blue\",\"yellow\"],\"values\":[\"black\", \"green\"],\"operator\":\"or\"}}}], \"meta\":{\"select_list\":[\"category\"]}}");
+        "{\"filter\":{\"terms\":{\"color\":{\"excludes\":[\"red\",\"blue\",\"yellow\"],\"values\":[\"black\", \"green\"],\"operator\":\"or\"}}}, \"meta\":{\"select_list\":[\"category\"]}}");
     assertTrue(_comp.isEquals(json, expected));
   }
 
@@ -261,7 +261,7 @@ public class TestBQL {
     JSONObject json = _compiler.compile("SELECT category " + "FROM cars "
         + "WHERE color CONTAINS ALL ('red', 'blue', 'yellow') EXCEPT ('black', 'green')");
     JSONObject expected = new JSONObject(
-        "{\"filter\":[{\"terms\":{\"color\":{\"values\":[\"red\",\"blue\",\"yellow\"],\"excludes\":[\"black\", \"green\"],\"operator\":\"and\"}}}], \"meta\":{\"select_list\":[\"category\"]}}");
+        "{\"filter\":{\"terms\":{\"color\":{\"values\":[\"red\",\"blue\",\"yellow\"],\"excludes\":[\"black\", \"green\"],\"operator\":\"and\"}}}, \"meta\":{\"select_list\":[\"category\"]}}");
     assertTrue(_comp.isEquals(json, expected));
   }
 
@@ -273,7 +273,7 @@ public class TestBQL {
     JSONObject json = _compiler.compile("SELECT * " + "FROM cars "
         + "WHERE city = 'china/hongkong' WITH ('strict':false, 'depth':1)");
     JSONObject expected = new JSONObject(
-        "{\"filter\":[{\"path\":{\"city\":{\"value\":\"china/hongkong\",\"strict\":false,\"depth\":1}}}], \"meta\":{\"select_list\":[\"*\"]}}");
+        "{\"filter\":{\"path\":{\"city\":{\"value\":\"china/hongkong\",\"strict\":false,\"depth\":1}}}, \"meta\":{\"select_list\":[\"*\"]}}");
     assertTrue(_comp.isEquals(json, expected));
   }
 
@@ -301,7 +301,7 @@ public class TestBQL {
 
     JSONObject json = _compiler.compile("SELECT category " + "FROM cars " + "WHERE color <> 'red'");
     JSONObject expected = new JSONObject(
-        "{\"filter\":[{\"terms\":{\"color\":{\"values\":[],\"excludes\":[\"red\"],\"operator\":\"or\"}}}], \"meta\":{\"select_list\":[\"category\"]}}");
+        "{\"filter\":{\"terms\":{\"color\":{\"values\":[],\"excludes\":[\"red\"],\"operator\":\"or\"}}}, \"meta\":{\"select_list\":[\"category\"]}}");
     assertTrue(_comp.isEquals(json, expected));
   }
 
@@ -338,7 +338,7 @@ public class TestBQL {
         + "AND color = 'red'                                -- LINE COMMENTS\n"
         + "AND category = 'sedan'");
     JSONObject expected = new JSONObject(
-        "{\"query\":{\"query_string\":{\"query\":\"cool AND moon-roof\"}},\"filter\":[{\"term\":{\"color\":{\"value\":\"red\"}}},{\"term\":{\"category\":{\"value\":\"sedan\"}}}], \"meta\":{\"select_list\":[\"category\"]}}");
+        "{\"query\":{\"query_string\":{\"query\":\"cool AND moon-roof\"}},\"filter\":{\"and\":[{\"term\":{\"color\":{\"value\":\"red\"}}},{\"term\":{\"category\":{\"value\":\"sedan\"}}}]}, \"meta\":{\"select_list\":[\"category\"]}}");
     assertTrue(_comp.isEquals(json, expected));
   }
 
@@ -385,8 +385,7 @@ public class TestBQL {
     JSONObject json = _compiler.compile("SELECT category " + "FROM cars "
         + "WHERE year BETWEEN 2000 AND 2001");
     JSONObject expected = new JSONObject(
-        "{\"filter\":{\"range\":{\"year\":{\"to\":2001,\"include_lower\":true,\"include_upper\":true,\"from\":2000}}}}, \"meta\":{\"select_list\":[\"category\"]}}");
- //   {"filter":{"range":{"year":{"from":2000,"include_lower":true,"include_upper":true,"to":2001}}},"meta":{"select_list":["category"]}}
+        "{\"filter\":{\"range\":{\"year\":{\"to\":2001,\"include_lower\":true,\"include_upper\":true,\"from\":2000}}}, \"meta\":{\"select_list\":[\"category\"]}}");
     assertTrue(_comp.isEquals(json, expected));
   }
 
@@ -430,7 +429,7 @@ public class TestBQL {
 
     JSONObject json = _compiler.compile("SELECT year " + "FROM cars " + "WHERE year > 1999");
     JSONObject expected = new JSONObject(
-        "{\"filter\":[{\"range\":{\"year\":{\"from\":1999,\"include_lower\":false}}}], \"meta\":{\"select_list\":[\"year\"]}}");
+        "{\"filter\":{\"range\":{\"year\":{\"from\":1999,\"include_lower\":false}}}, \"meta\":{\"select_list\":[\"year\"]}}");
     assertTrue(_comp.isEquals(json, expected));
   }
 
@@ -441,7 +440,7 @@ public class TestBQL {
 
     JSONObject json = _compiler.compile("SELECT year " + "FROM cars " + "WHERE year <= 2000");
     JSONObject expected = new JSONObject(
-        "{\"filter\":[{\"range\":{\"year\":{\"to\":2000,\"include_upper\":true}}}], \"meta\":{\"select_list\":[\"year\"]}}");
+        "{\"filter\":{\"range\":{\"year\":{\"to\":2000,\"include_upper\":true}}}, \"meta\":{\"select_list\":[\"year\"]}}");
     assertTrue(_comp.isEquals(json, expected));
   }
 
@@ -453,7 +452,7 @@ public class TestBQL {
     JSONObject json = _compiler.compile("SELECT year " + "FROM cars "
         + "WHERE year > 1999 AND year <= 2003 AND year >= 1999");
     JSONObject expected = new JSONObject(
-        "{\"filter\":[{\"range\":{\"year\":{\"to\":2003,\"include_lower\":false,\"include_upper\":true,\"from\":1999}}}], \"meta\":{\"select_list\":[\"year\"]}}");
+        "{\"filter\":{\"range\":{\"year\":{\"to\":2003,\"include_lower\":false,\"include_upper\":true,\"from\":1999}}}, \"meta\":{\"select_list\":[\"year\"]}}");
     assertTrue(_comp.isEquals(json, expected));
   }
 
@@ -505,7 +504,7 @@ public class TestBQL {
     JSONObject json = _compiler.compile("SELECT color " + "FROM cars "
         + "WHERE color = 'red' AND year > 1995");
     JSONObject expected = new JSONObject(
-        "{\"filter\":[{\"term\":{\"color\":{\"value\":\"red\"}}},{\"range\":{\"year\":{\"include_lower\":false,\"from\":1995}}}], \"meta\":{\"select_list\":[\"color\"]}}");
+        "{\"filter\":{\"and\":[{\"term\":{\"color\":{\"value\":\"red\"}}},{\"range\":{\"year\":{\"include_lower\":false,\"from\":1995}}}]}, \"meta\":{\"select_list\":[\"color\"]}}");
     assertTrue(_comp.isEquals(json, expected));
   }
 
@@ -531,7 +530,7 @@ public class TestBQL {
     JSONObject json = _compiler.compile("SELECT color " + "FROM cars "
         + "WHERE color = 'red' AND age > 25");
     JSONObject expected = new JSONObject(
-        "{\"filter\":[{\"term\":{\"color\":{\"value\":\"red\"}}}],\"filter\":{\"range\":{\"age\":{\"include_lower\":false,\"from\":25}}}, \"meta\":{\"select_list\":[\"color\"]}}");
+        "{\"filter\":{\"and\":[{\"term\":{\"color\":{\"value\":\"red\"}}},{\"range\":{\"age\":{\"include_lower\":false,\"from\":25}}}]}, \"meta\":{\"select_list\":[\"color\"]}}");
     assertTrue(_comp.isEquals(json, expected));
   }
 
@@ -881,7 +880,7 @@ public class TestBQL {
 
     JSONObject json = _compiler.compile("SELECT * " + "FROM cars " + "WHERE _uid IN (123, 124)");
     JSONObject expected = new JSONObject(
-        "{\"filter\":[{\"terms\":{\"_uid\":{\"values\":[123,124],\"excludes\":[],\"operator\":\"or\"}}}],\"meta\":{\"select_list\":[\"*\"]}}");
+        "{\"filter\":{\"terms\":{\"_uid\":{\"values\":[123,124],\"excludes\":[],\"operator\":\"or\"}}},\"meta\":{\"select_list\":[\"*\"]}}");
 
     System.out.println(json);
     assertTrue(_comp.isEquals(json, expected));
@@ -895,7 +894,7 @@ public class TestBQL {
     JSONObject json = _compiler.compile("SELECT * " + "FROM cars "
         + "WHERE long_id IN (5497057336205783040)");
     JSONObject expected = new JSONObject(
-        "{\"filter\":[{\"terms\":{\"long_id\":{\"values\":[5497057336205783040],\"excludes\":[],\"operator\":\"or\"}}}],\"meta\":{\"select_list\":[\"*\"]}}");
+        "{\"filter\":{\"terms\":{\"long_id\":{\"values\":[5497057336205783040],\"excludes\":[],\"operator\":\"or\"}}},\"meta\":{\"select_list\":[\"*\"]}}");
     assertTrue(_comp.isEquals(json, expected));
   }
 
@@ -988,7 +987,7 @@ public class TestBQL {
         + "WHERE color = 'red' " + "USING RELEVANCE MODEL homepage_top (srcid:1234)");
 
     JSONObject expected = new JSONObject(
-        "{\"query\":{\"query_string\":{\"query\":\"\",\"relevance\":{\"values\":{\"srcid\":1234},\"predefined_model\":\"homepage_top\"}}},\"filter\":[{\"term\":{\"color\":{\"value\":\"red\"}}}],\"meta\":{\"select_list\":[\"color\",\"year\"]}}");
+        "{\"query\":{\"query_string\":{\"query\":\"\",\"relevance\":{\"values\":{\"srcid\":1234},\"predefined_model\":\"homepage_top\"}}},\"filter\":{\"term\":{\"color\":{\"value\":\"red\"}}},\"meta\":{\"select_list\":[\"color\",\"year\"]}}");
     assertTrue(_comp.isEquals(json, expected));
   }
 
@@ -1005,7 +1004,7 @@ public class TestBQL {
         + "      return 345; " + "    else " + "      return _INNER_SCORE; " + "  END ");
 
     JSONObject expected = new JSONObject(
-        "{\"query\":{\"query_string\":{\"query\":\"\",\"relevance\":{\"model\":{\"function_params\":[\"intParam1\",\"intParam2\",\"strParam\",\"srcid\",\"_INNER_SCORE\"],\"facets\":{},\"variables\":{\"int\":[\"intParam1\",\"intParam2\",\"srcid\"],\"string\":[\"strParam\"]},\"function\":\"int myInt = 100 + intParam1 + intParam2;     String newStr = strParam;     if (srcid == myInt + 2)       return 123;     else if (srcid > 200)       return 345;     else       return _INNER_SCORE;\"},\"values\":{\"srcid\":1234}}}},\"filter\":[{\"term\":{\"color\":{\"value\":\"red\"}}}],\"meta\":{\"select_list\":[\"color\",\"year\"]}}");
+        "{\"query\":{\"query_string\":{\"query\":\"\",\"relevance\":{\"model\":{\"function_params\":[\"intParam1\",\"intParam2\",\"strParam\",\"srcid\",\"_INNER_SCORE\"],\"facets\":{},\"variables\":{\"int\":[\"intParam1\",\"intParam2\",\"srcid\"],\"string\":[\"strParam\"]},\"function\":\"int myInt = 100 + intParam1 + intParam2;     String newStr = strParam;     if (srcid == myInt + 2)       return 123;     else if (srcid > 200)       return 345;     else       return _INNER_SCORE;\"},\"values\":{\"srcid\":1234}}}},\"filter\":{\"term\":{\"color\":{\"value\":\"red\"}}},\"meta\":{\"select_list\":[\"color\",\"year\"]}}");
     assertTrue(_comp.isEquals(json, expected));
   }
 
@@ -1021,7 +1020,7 @@ public class TestBQL {
         + "    x = .34e+12; " + "    x = 123f; " + "    return 0.25; " + "  END ");
 
     JSONObject expected = new JSONObject(
-        "{\"query\":{\"query_string\":{\"query\":\"\",\"relevance\":{\"model\":{\"function_params\":[\"srcid\"],\"facets\":{},\"variables\":{\"int\":[\"srcid\"]},\"function\":\"float x1 = 1.2;     int x = 7.;     x = 7.5e12;     x = 7.5e-12;     x = 7.5e-12f;     x = .34;     x = .34e+12;     x = 123f;     return 0.25;\"},\"values\":{\"srcid\":1234}}}},\"filter\":[{\"term\":{\"color\":{\"value\":\"red\"}}}],\"meta\":{\"select_list\":[\"color\",\"year\"]}}");
+        "{\"query\":{\"query_string\":{\"query\":\"\",\"relevance\":{\"model\":{\"function_params\":[\"srcid\"],\"facets\":{},\"variables\":{\"int\":[\"srcid\"]},\"function\":\"float x1 = 1.2;     int x = 7.;     x = 7.5e12;     x = 7.5e-12;     x = 7.5e-12f;     x = .34;     x = .34e+12;     x = 123f;     return 0.25;\"},\"values\":{\"srcid\":1234}}}},\"filter\":{\"term\":{\"color\":{\"value\":\"red\"}}},\"meta\":{\"select_list\":[\"color\",\"year\"]}}");
     assertTrue(_comp.isEquals(json, expected));
   }
 
@@ -1040,7 +1039,7 @@ public class TestBQL {
         + "    return 0.123f; " + "  END ");
 
     JSONObject expected = new JSONObject(
-        "{\"query\":{\"query_string\":{\"query\":\"\",\"relevance\":{\"model\":{\"function_params\":[\"intParam1\",\"intParam2\",\"strParam\"],\"facets\":{},\"variables\":{\"int\":[\"intParam1\",\"intParam2\"],\"string\":[\"strParam\"]},\"function\":\"int myInt = 100;     String str1;     String str2 = \\\"abcd\\\";     char ch = 'c';     Integer int1, int2;     int int3 = 0L, int4 = 1234l;     float f1 = 1.23f, f2 = 1.23F;     float e1 = 2e+1234;     Byte byte1;     IntOpenHashSet mySet1, mySet2;     Object2IntOpenHashMap myMap1;     return 0.123f;\"},\"values\":{\"srcid\":1234}}}},\"filter\":[{\"term\":{\"color\":{\"value\":\"red\"}}}],\"meta\":{\"select_list\":[\"color\",\"year\"]}}");
+        "{\"query\":{\"query_string\":{\"query\":\"\",\"relevance\":{\"model\":{\"function_params\":[\"intParam1\",\"intParam2\",\"strParam\"],\"facets\":{},\"variables\":{\"int\":[\"intParam1\",\"intParam2\"],\"string\":[\"strParam\"]},\"function\":\"int myInt = 100;     String str1;     String str2 = \\\"abcd\\\";     char ch = 'c';     Integer int1, int2;     int int3 = 0L, int4 = 1234l;     float f1 = 1.23f, f2 = 1.23F;     float e1 = 2e+1234;     Byte byte1;     IntOpenHashSet mySet1, mySet2;     Object2IntOpenHashMap myMap1;     return 0.123f;\"},\"values\":{\"srcid\":1234}}}},\"filter\":{\"term\":{\"color\":{\"value\":\"red\"}}},\"meta\":{\"select_list\":[\"color\",\"year\"]}}");
     assertTrue(_comp.isEquals(json, expected));
   }
 
@@ -1056,7 +1055,7 @@ public class TestBQL {
         + "    } " + "    return 100; " + "  END ");
 
     JSONObject expected = new JSONObject(
-        "{\"query\":{\"query_string\":{\"query\":\"\",\"relevance\":{\"model\":{\"function_params\":[\"srcid\"],\"facets\":{},\"variables\":{\"int\":[\"srcid\"]},\"function\":\"int myInt = 100;     while (myInt < 200) {       myInt++;       myInt = myInt + 10;     }     return 100;\"},\"values\":{\"srcid\":1234}}}},\"filter\":[{\"term\":{\"color\":{\"value\":\"red\"}}}],\"meta\":{\"select_list\":[\"color\",\"year\"]}}");
+        "{\"query\":{\"query_string\":{\"query\":\"\",\"relevance\":{\"model\":{\"function_params\":[\"srcid\"],\"facets\":{},\"variables\":{\"int\":[\"srcid\"]},\"function\":\"int myInt = 100;     while (myInt < 200) {       myInt++;       myInt = myInt + 10;     }     return 100;\"},\"values\":{\"srcid\":1234}}}},\"filter\":{\"term\":{\"color\":{\"value\":\"red\"}}},\"meta\":{\"select_list\":[\"color\",\"year\"]}}");
     assertTrue(_comp.isEquals(json, expected));
   }
 
@@ -1072,7 +1071,7 @@ public class TestBQL {
         + "  END ");
 
     JSONObject expected = new JSONObject(
-        "{\"query\":{\"query_string\":{\"query\":\"\",\"relevance\":{\"model\":{\"function_params\":[\"srcid\"],\"facets\":{},\"variables\":{\"int\":[\"srcid\"]},\"function\":\"int myInt = 100;     do {       myInt = myInt + 10;     } while (myInt < 100);     return 100;\"},\"values\":{\"srcid\":1234}}}},\"filter\":[{\"term\":{\"color\":{\"value\":\"red\"}}}],\"meta\":{\"select_list\":[\"color\",\"year\"]}}");
+        "{\"query\":{\"query_string\":{\"query\":\"\",\"relevance\":{\"model\":{\"function_params\":[\"srcid\"],\"facets\":{},\"variables\":{\"int\":[\"srcid\"]},\"function\":\"int myInt = 100;     do {       myInt = myInt + 10;     } while (myInt < 100);     return 100;\"},\"values\":{\"srcid\":1234}}}},\"filter\":{\"term\":{\"color\":{\"value\":\"red\"}}},\"meta\":{\"select_list\":[\"color\",\"year\"]}}");
     assertTrue(_comp.isEquals(json, expected));
   }
 
@@ -1088,7 +1087,7 @@ public class TestBQL {
         + "    return myInt; " + "  END ");
 
     JSONObject expected = new JSONObject(
-        "{\"query\":{\"query_string\":{\"query\":\"\",\"relevance\":{\"model\":{\"function_params\":[\"srcid\"],\"facets\":{},\"variables\":{\"int\":[\"srcid\"]},\"function\":\"int myInt = 0;     for (int i = 0; i < 100; i++) {       myInt = myInt + i * 10;     }     return myInt;\"},\"values\":{\"srcid\":1234}}}},\"filter\":[{\"term\":{\"color\":{\"value\":\"red\"}}}],\"meta\":{\"select_list\":[\"color\",\"year\"]}}");
+        "{\"query\":{\"query_string\":{\"query\":\"\",\"relevance\":{\"model\":{\"function_params\":[\"srcid\"],\"facets\":{},\"variables\":{\"int\":[\"srcid\"]},\"function\":\"int myInt = 0;     for (int i = 0; i < 100; i++) {       myInt = myInt + i * 10;     }     return myInt;\"},\"values\":{\"srcid\":1234}}}},\"filter\":{\"term\":{\"color\":{\"value\":\"red\"}}},\"meta\":{\"select_list\":[\"color\",\"year\"]}}");
     assertTrue(_comp.isEquals(json, expected));
   }
 
@@ -1106,7 +1105,7 @@ public class TestBQL {
         + "  END ");
 
     JSONObject expected = new JSONObject(
-        "{\"query\":{\"query_string\":{\"query\":\"\",\"relevance\":{\"model\":{\"function_params\":[\"srcid\"],\"facets\":{},\"variables\":{\"int\":[\"srcid\"]},\"function\":\"int myInt = 0;     switch (myInt) {      case 1: myInt = 2;              break;      case 2:             case 3: myInt = 4;              break;      default:              myInt = 100;     }     return 0.5f;\"},\"values\":{\"srcid\":1234}}}},\"filter\":[{\"term\":{\"color\":{\"value\":\"red\"}}}],\"meta\":{\"select_list\":[\"color\",\"year\"]}}");
+        "{\"query\":{\"query_string\":{\"query\":\"\",\"relevance\":{\"model\":{\"function_params\":[\"srcid\"],\"facets\":{},\"variables\":{\"int\":[\"srcid\"]},\"function\":\"int myInt = 0;     switch (myInt) {      case 1: myInt = 2;              break;      case 2:             case 3: myInt = 4;              break;      default:              myInt = 100;     }     return 0.5f;\"},\"values\":{\"srcid\":1234}}}},\"filter\":{\"term\":{\"color\":{\"value\":\"red\"}}},\"meta\":{\"select_list\":[\"color\",\"year\"]}}");
     assertTrue(_comp.isEquals(json, expected));
   }
 
@@ -1127,7 +1126,7 @@ public class TestBQL {
         + "    return timeScore + _INNER_SCORE + price; " + "  END ");
 
     JSONObject expected = new JSONObject(
-        "{\"query\":{\"query_string\":{\"query\":\"\",\"relevance\":{\"model\":{\"function_params\":[\"intParam1\",\"intParam2\",\"strParam\",\"setParam\",\"mapParam\",\"tags\",\"price\",\"_INNER_SCORE\"],\"facets\":{\"mstring\":[\"tags\"],\"float\":[\"price\"]},\"variables\":{\"map_int_int\":[\"mapParam\"],\"int\":[\"intParam1\",\"intParam2\"],\"string\":[\"strParam\"],\"set_double\":[\"setParam\"]},\"function\":\"int myInt = 0;     float delta = System.currentTimeMillis() + intParam1 + intParam2 ;     float t = delta > 0 ? delta : 0;     float numHours = t / (1000 * 3600);     float timeScore = (float) Math.exp(numHours);     if (tags.contains(\\\"zzz\\\"))       return 999999;     int x = 0;     x += 5;     x *= 10;     return timeScore + _INNER_SCORE + price;\"},\"values\":{\"srcid\":1234}}}},\"filter\":[{\"term\":{\"color\":{\"value\":\"red\"}}}],\"meta\":{\"select_list\":[\"color\",\"year\"]}}");
+        "{\"query\":{\"query_string\":{\"query\":\"\",\"relevance\":{\"model\":{\"function_params\":[\"intParam1\",\"intParam2\",\"strParam\",\"setParam\",\"mapParam\",\"tags\",\"price\",\"_INNER_SCORE\"],\"facets\":{\"mstring\":[\"tags\"],\"float\":[\"price\"]},\"variables\":{\"map_int_int\":[\"mapParam\"],\"int\":[\"intParam1\",\"intParam2\"],\"string\":[\"strParam\"],\"set_double\":[\"setParam\"]},\"function\":\"int myInt = 0;     float delta = System.currentTimeMillis() + intParam1 + intParam2 ;     float t = delta > 0 ? delta : 0;     float numHours = t / (1000 * 3600);     float timeScore = (float) Math.exp(numHours);     if (tags.contains(\\\"zzz\\\"))       return 999999;     int x = 0;     x += 5;     x *= 10;     return timeScore + _INNER_SCORE + price;\"},\"values\":{\"srcid\":1234}}}},\"filter\":{\"term\":{\"color\":{\"value\":\"red\"}}},\"meta\":{\"select_list\":[\"color\",\"year\"]}}");
     assertTrue(_comp.isEquals(json, expected));
   }
 
@@ -1144,7 +1143,7 @@ public class TestBQL {
         + "  END " + "ORDER BY relevance");
 
     JSONObject expected = new JSONObject(
-        "{\"sort\":[\"relevance\"],\"query\":{\"query_string\":{\"query\":\"\",\"relevance\":{\"model\":{\"function_params\":[\"thisYear\",\"goodYear\",\"year\",\"_INNER_SCORE\"],\"facets\":{\"int\":[\"year\"]},\"variables\":{\"set_int\":[\"goodYear\"],\"int\":[\"thisYear\"]},\"function\":\"if (goodYear.contains(year))       return (float)Math.exp(10d);     if (year == thisYear)       return 87f;     return _INNER_SCORE;\"},\"values\":{\"thisYear\":2001,\"goodYear\":[1996]}}}},\"filter\":[{\"term\":{\"color\":{\"value\":\"red\"}}}],\"meta\":{\"select_list\":[\"*\"]}}");
+        "{\"sort\":[\"relevance\"],\"query\":{\"query_string\":{\"query\":\"\",\"relevance\":{\"model\":{\"function_params\":[\"thisYear\",\"goodYear\",\"year\",\"_INNER_SCORE\"],\"facets\":{\"int\":[\"year\"]},\"variables\":{\"set_int\":[\"goodYear\"],\"int\":[\"thisYear\"]},\"function\":\"if (goodYear.contains(year))       return (float)Math.exp(10d);     if (year == thisYear)       return 87f;     return _INNER_SCORE;\"},\"values\":{\"thisYear\":2001,\"goodYear\":[1996]}}}},\"filter\":{\"term\":{\"color\":{\"value\":\"red\"}}},\"meta\":{\"select_list\":[\"*\"]}}");
     assertTrue(_comp.isEquals(json, expected));
   }
 
@@ -1162,7 +1161,7 @@ public class TestBQL {
         + "    return _INNER_SCORE; " + "  END " + "ORDER BY relevance");
 
     JSONObject expected = new JSONObject(
-        "{\"sort\":[\"relevance\"],\"query\":{\"query_string\":{\"query\":\"\",\"relevance\":{\"model\":{\"function_params\":[\"thisYear\",\"goodYear\",\"color\",\"year\",\"_INNER_SCORE\"],\"facets\":{\"int\":[\"year\"],\"string\":[\"color\"]},\"variables\":{\"set_int\":[\"goodYear\"],\"int\":[\"thisYear\"]},\"function\":\"if (goodYear.contains(year))       return (float)Math.exp(10d);     if (year == thisYear)       return 87f;     else if (color.equals(\\\"blue\\\"))       return 99f;     return _INNER_SCORE;\"},\"values\":{\"thisYear\":2001,\"goodYear\":[1996]}}}},\"filter\":[{\"term\":{\"color\":{\"value\":\"red\"}}}],\"meta\":{\"select_list\":[\"*\"]}}");
+        "{\"sort\":[\"relevance\"],\"query\":{\"query_string\":{\"query\":\"\",\"relevance\":{\"model\":{\"function_params\":[\"thisYear\",\"goodYear\",\"color\",\"year\",\"_INNER_SCORE\"],\"facets\":{\"int\":[\"year\"],\"string\":[\"color\"]},\"variables\":{\"set_int\":[\"goodYear\"],\"int\":[\"thisYear\"]},\"function\":\"if (goodYear.contains(year))       return (float)Math.exp(10d);     if (year == thisYear)       return 87f;     else if (color.equals(\\\"blue\\\"))       return 99f;     return _INNER_SCORE;\"},\"values\":{\"thisYear\":2001,\"goodYear\":[1996]}}}},\"filter\":{\"term\":{\"color\":{\"value\":\"red\"}}},\"meta\":{\"select_list\":[\"*\"]}}");
     assertTrue(_comp.isEquals(json, expected));
   }
 
@@ -1178,7 +1177,7 @@ public class TestBQL {
         + "ORDER BY relevance");
 
     JSONObject expected = new JSONObject(
-        "{\"sort\":[\"relevance\"],\"query\":{\"query_string\":{\"query\":\"\",\"relevance\":{\"model\":{\"function_params\":[\"boost\",\"price\"],\"facets\":{\"float\":[\"price\"]},\"variables\":{\"float\":[\"boost\"]},\"function\":\"int x, y;     for (int i = 0; i < 10; ++i) {        x = 10;        y = x + i;     }     return y * boost + price;\"},\"values\":{\"boost\":2.5}}}},\"filter\":[{\"term\":{\"color\":{\"value\":\"red\"}}}],\"meta\":{\"select_list\":[\"*\"]}}");
+        "{\"sort\":[\"relevance\"],\"query\":{\"query_string\":{\"query\":\"\",\"relevance\":{\"model\":{\"function_params\":[\"boost\",\"price\"],\"facets\":{\"float\":[\"price\"]},\"variables\":{\"float\":[\"boost\"]},\"function\":\"int x, y;     for (int i = 0; i < 10; ++i) {        x = 10;        y = x + i;     }     return y * boost + price;\"},\"values\":{\"boost\":2.5}}}},\"filter\":{\"term\":{\"color\":{\"value\":\"red\"}}},\"meta\":{\"select_list\":[\"*\"]}}");
     assertTrue(_comp.isEquals(json, expected));
   }
 
@@ -1192,7 +1191,7 @@ public class TestBQL {
         + "ORDER BY relevance");
 
     JSONObject expected = new JSONObject(
-        "{\"sort\":[\"relevance\"],\"query\":{\"query_string\":{\"query\":\"\",\"relevance\":{\"predefined_model\":\"my_model\",\"values\":{\"thisYear\":2001,\"myMap\":{\"aaa\":1,\"bbb\":2}}}}},\"filter\":[{\"term\":{\"color\":{\"value\":\"red\"}}}],\"meta\":{\"select_list\":[\"*\"]}}");
+        "{\"sort\":[\"relevance\"],\"query\":{\"query_string\":{\"query\":\"\",\"relevance\":{\"predefined_model\":\"my_model\",\"values\":{\"thisYear\":2001,\"myMap\":{\"aaa\":1,\"bbb\":2}}}}},\"filter\":{\"term\":{\"color\":{\"value\":\"red\"}}},\"meta\":{\"select_list\":[\"*\"]}}");
     assertTrue(_comp.isEquals(json, expected));
   }
 
@@ -1227,7 +1226,7 @@ public class TestBQL {
             + "    x += 5; " + "    x *= 10; " + "    return timeScore; " + "  END ");
 
     JSONObject expected = new JSONObject(
-        "{\"query\":{\"query_string\":{\"query\":\"\",\"relevance\":{\"model\":{\"function_params\":[\"srcid\",\"timeVal\",\"_half_time\",\"coolTag\",\"tags\"],\"facets\":{\"mstring\":[\"tags\"]},\"variables\":{\"int\":[\"srcid\"],\"string\":[\"coolTag\"],\"long\":[\"timeVal\",\"_half_time\"]},\"function\":\"int myInt = 0;     float delta = System.currentTimeMillis() - timeVal;     float t = delta > 0 ? delta : 0;     float numHours = t / (1000 * 3600);     float timeScore = (float) Math.exp(-(numHours/_half_time));     if (tags.contains(coolTag))       return 999999;     int x = 0;     x += 5;     x *= 10;     return timeScore;\"},\"values\":{\"_half_time\":8888,\"timeVal\":9999,\"coolTag\":\"zzz\",\"srcid\":1234}}}},\"filter\":[{\"term\":{\"color\":{\"value\":\"red\"}}}],\"meta\":{\"select_list\":[\"color\",\"year\"]}}");
+        "{\"query\":{\"query_string\":{\"query\":\"\",\"relevance\":{\"model\":{\"function_params\":[\"srcid\",\"timeVal\",\"_half_time\",\"coolTag\",\"tags\"],\"facets\":{\"mstring\":[\"tags\"]},\"variables\":{\"int\":[\"srcid\"],\"string\":[\"coolTag\"],\"long\":[\"timeVal\",\"_half_time\"]},\"function\":\"int myInt = 0;     float delta = System.currentTimeMillis() - timeVal;     float t = delta > 0 ? delta : 0;     float numHours = t / (1000 * 3600);     float timeScore = (float) Math.exp(-(numHours/_half_time));     if (tags.contains(coolTag))       return 999999;     int x = 0;     x += 5;     x *= 10;     return timeScore;\"},\"values\":{\"_half_time\":8888,\"timeVal\":9999,\"coolTag\":\"zzz\",\"srcid\":1234}}}},\"filter\":{\"term\":{\"color\":{\"value\":\"red\"}}},\"meta\":{\"select_list\":[\"color\",\"year\"]}}");
     assertTrue(_comp.isEquals(json, expected));
   }
 
@@ -1238,9 +1237,9 @@ public class TestBQL {
 
     JSONObject json = _compiler.compile("SELECT sum(year) , sum(color)" + "FROM cars "
         + "WHERE color = 'red' ");
-    assertEquals(
-        "{\"mapReduce\":{\"function\":\"bql.composite\",\"parameters\":{\"array\":[{\"column\":\"year\",\"mapReduce\":\"sum\"},{\"column\":\"color\",\"mapReduce\":\"sum\"}]}},\"meta\":{\"select_list\":[\"*\"]},\"filter\":[{\"term\":{\"color\":{\"value\":\"red\"}}}]}",
-        json.toString());
+    JSONObject expected = new JSONObject(
+        "{\"mapReduce\":{\"function\":\"bql.composite\",\"parameters\":{\"array\":[{\"column\":\"year\",\"mapReduce\":\"sum\"},{\"column\":\"color\",\"mapReduce\":\"sum\"}]}},\"meta\":{\"select_list\":[\"*\"]},\"filter\":{\"term\":{\"color\":{\"value\":\"red\"}}}}");
+    assertTrue(_comp.isEquals(json, expected));
   }
 
   @Test
@@ -1250,9 +1249,9 @@ public class TestBQL {
 
     JSONObject json = _compiler.compile("SELECT sum(year) , sum(year)" + "FROM cars "
         + "WHERE color = 'red' GROUP BY color, groupid");
-    assertEquals(
-        "{\"groupBy\":{\"top\":10},\"mapReduce\":{\"function\":\"bql.composite\",\"parameters\":{\"array\":[{\"columns\":[\"color\",\"groupid\"],\"function\":\"sum\",\"mapReduce\":\"bql.groupBy\",\"metric\":\"year\",\"top\":10},{\"columns\":[\"color\",\"groupid\"],\"function\":\"sum\",\"mapReduce\":\"bql.groupBy\",\"metric\":\"year\",\"top\":10}]}},\"meta\":{\"select_list\":[\"*\"]},\"filter\":[{\"term\":{\"color\":{\"value\":\"red\"}}}]}",
-        json.toString());
+    JSONObject expected = new JSONObject(
+        "{\"groupBy\":{\"top\":10},\"mapReduce\":{\"function\":\"bql.composite\",\"parameters\":{\"array\":[{\"columns\":[\"color\",\"groupid\"],\"function\":\"sum\",\"mapReduce\":\"bql.groupBy\",\"metric\":\"year\",\"top\":10},{\"columns\":[\"color\",\"groupid\"],\"function\":\"sum\",\"mapReduce\":\"bql.groupBy\",\"metric\":\"year\",\"top\":10}]}},\"meta\":{\"select_list\":[\"*\"]},\"filter\":{\"term\":{\"color\":{\"value\":\"red\"}}}}");
+    assertTrue(_comp.isEquals(json, expected));
   }
 
   @Test
@@ -1262,9 +1261,9 @@ public class TestBQL {
 
     JSONObject json = _compiler.compile("SELECT sum(year) " + "FROM cars "
         + "WHERE color = 'red' GROUP BY color");
-    assertEquals(
-        "{\"facets\":{\"_sumGroupBy\":{\"expand\":false,\"max\":10,\"minhit\":0,\"properties\":{\"dimension\":\"color\",\"metric\":\"year\"}}},\"groupBy\":{\"top\":10},\"meta\":{\"select_list\":[\"*\"]},\"filter\":[{\"term\":{\"color\":{\"value\":\"red\"}}}]}",
-        json.toString());
+    JSONObject expected = new JSONObject(
+        "{\"facets\":{\"_sumGroupBy\":{\"expand\":false,\"max\":10,\"minhit\":0,\"properties\":{\"dimension\":\"color\",\"metric\":\"year\"}}},\"groupBy\":{\"top\":10},\"meta\":{\"select_list\":[\"*\"]},\"filter\":{\"term\":{\"color\":{\"value\":\"red\"}}}}");
+    assertTrue(_comp.isEquals(json, expected));
   }
 
   @Test
@@ -1274,9 +1273,9 @@ public class TestBQL {
 
     JSONObject json = _compiler.compile("SELECT count(year) " + "FROM cars "
         + "WHERE color = 'red' GROUP BY color");
-    assertEquals(
-        "{\"facets\":{\"color\":{\"expand\":false,\"max\":10,\"minhit\":0}},\"groupBy\":{\"top\":10},\"meta\":{\"select_list\":[\"*\"]},\"filter\":[{\"term\":{\"color\":{\"value\":\"red\"}}}]}",
-        json.toString());
+    JSONObject expected = new JSONObject(
+        "{\"facets\":{\"color\":{\"expand\":false,\"max\":10,\"minhit\":0}},\"groupBy\":{\"top\":10},\"meta\":{\"select_list\":[\"*\"]},\"filter\":{\"term\":{\"color\":{\"value\":\"red\"}}} }");
+    assertTrue(_comp.isEquals(json, expected));
   }
 
   @Test
@@ -1285,9 +1284,9 @@ public class TestBQL {
     System.out.println("==================================================");
 
     JSONObject json = _compiler.compile("SELECT min(year) " + "FROM cars " + "WHERE color = 'red'");
-    assertEquals(
-        "{\"mapReduce\":{\"function\":\"min\",\"parameters\":{\"column\":\"year\",\"mapReduce\":\"min\"}},\"meta\":{\"select_list\":[\"*\"]},\"filter\":[{\"term\":{\"color\":{\"value\":\"red\"}}}]}",
-        json.toString());
+    JSONObject expected = new JSONObject(
+        "{\"mapReduce\":{\"function\":\"min\",\"parameters\":{\"column\":\"year\",\"mapReduce\":\"min\"}},\"meta\":{\"select_list\":[\"*\"]},\"filter\":{\"term\":{\"color\":{\"value\":\"red\"}}}}");
+    assertTrue(_comp.isEquals(json, expected));
   }
 
   @Test
@@ -1307,8 +1306,8 @@ public class TestBQL {
 
     JSONObject json = _compiler.compile("SELECT *" + "FROM cars "
         + "WHERE color = 'red' EXECUTE(bql.max, 'column':'year')");
-    assertEquals(
-        "{\"mapReduce\":{\"function\":\"bql.max\",\"parameters\":{\"column\":\"year\",\"mapReduce\":\"bql.max\"}},\"meta\":{\"select_list\":[\"*\"]},\"filter\":[{\"term\":{\"color\":{\"value\":\"red\"}}}]}",
-        json.toString());
+    JSONObject expected = new JSONObject(
+        "{\"mapReduce\":{\"function\":\"bql.max\",\"parameters\":{\"column\":\"year\",\"mapReduce\":\"bql.max\"}},\"meta\":{\"select_list\":[\"*\"]},\"filter\":{\"term\":{\"color\":{\"value\":\"red\"}}}}");
+    assertTrue(_comp.isEquals(json, expected));
   }
 }

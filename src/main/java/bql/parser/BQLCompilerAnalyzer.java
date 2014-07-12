@@ -261,8 +261,8 @@ public class BQLCompilerAnalyzer extends BQLBaseListener {
     return true;
   }
 
-  private void extractSelectionInfo(JSONObject where, JSONArray selections, JSONObject filter,
-      JSONObject query) throws JSONException {
+  private void extractFilterInfo(JSONObject where, JSONObject filter, JSONObject query)
+      throws JSONException {
 
     JSONObject queryPred = where.optJSONObject("query");
     JSONArray andPreds = null;
@@ -280,21 +280,8 @@ public class BQLCompilerAnalyzer extends BQLBaseListener {
           } else {
             filter_list.put(pred);
           }
-        } else if (pred.has("and") || pred.has("or") || pred.has("isNull")) {
-          filter_list.put(pred);
         } else {
-/*
-          String[] facetInfo = _facetInfoMap.get(predField(pred));
-          if (facetInfo != null) {
-            if ("range".equals(predType(pred)) && !"range".equals(facetInfo[0])) {
-              filter_list.put(pred);
-            } else {
-              selections.put(pred);
-            }
-          } else {
-*/
           filter_list.put(pred);
-  //        }
         }
       }
       if (filter_list.length() > 1) {
@@ -302,21 +289,8 @@ public class BQLCompilerAnalyzer extends BQLBaseListener {
       } else if (filter_list.length() == 1) {
         filter.put("filter", filter_list.get(0));
       }
-    } else if (where.has("or") || where.has("isNull")) {
-      filter.put("filter", where);
     } else {
-/*
-      String[] facetInfo = _facetInfoMap.get(predField(where));
-      if (facetInfo != null) {
-        if ("range".equals(predType(where)) && !"range".equals(facetInfo[0])) {
-          filter.put("filter", where);
-        } else {
-          selections.put(where);
-        }
-      } else {
-      */
       filter.put("filter", where);
-      //}
     }
   }
 
@@ -592,7 +566,6 @@ public class BQLCompilerAnalyzer extends BQLBaseListener {
 
     thriftRequest = new Request();
     JSONObject jsonObj = new FastJSONObject();
-    JSONArray selections = new FastJSONArray();
     JSONObject filter = new FastJSONObject();
     JSONObject query = new FastJSONObject();
 
@@ -736,19 +709,14 @@ public class BQLCompilerAnalyzer extends BQLBaseListener {
       }
 
       if (ctx.w != null) {
-        extractSelectionInfo((JSONObject) jsonProperty.get(ctx.w), selections, filter, query);
+        extractFilterInfo((JSONObject) jsonProperty.get(ctx.w), filter, query);
         JSONObject queryPred = query.optJSONObject("query");
         if (queryPred != null) {
           jsonObj.put("query", queryPred);
           Query thriftQuery = extractQuery(queryPred);
           thriftRequest.setQuery(thriftQuery);
         }
-        /*
-        if (selections.length() > 0) {
-          jsonObj.put("selections", selections);
-          System.out.println("selections: " + selections);
-        }
-        */
+
         JSONObject f = filter.optJSONObject("filter");
         if (f != null) {
           jsonObj.put("filter", f);
