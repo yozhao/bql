@@ -1,5 +1,6 @@
 package bql.parser;
 
+import bql.api.Request;
 import bql.util.JSONUtil.FastJSONArray;
 import bql.util.JSONUtil.FastJSONObject;
 import bql.util.JsonComparator;
@@ -49,10 +50,15 @@ public class TestBQL {
     System.out.println("testBasic1");
     System.out.println("==================================================");
     // No where clause
-    JSONObject json = _compiler.compile("select category /* BLOCK COMMENTS */ "
-        + "from cars       -- LINE COMMENTS");
+    String bql = "select category /* BLOCK COMMENTS */ "
+        + "from cars       -- LINE COMMENTS";
+    JSONObject json = _compiler.compile(bql);
     JSONObject expected = new JSONObject("{\"meta\":{\"select_list\":[\"category\"]}}");
     assertTrue(_comp.isEquals(json, expected));
+
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    // empty thrift request means MatchAllQuery
+    assertEquals("Request()", thriftRequest.toString());
   }
 
   @Test
@@ -60,9 +66,14 @@ public class TestBQL {
     System.out.println("testBasic2");
     System.out.println("==================================================");
     // No where clause, with a '*' in SELECT list
-    JSONObject json = _compiler.compile("select * " + "from cars");
+    String bql = "select * " + "from cars";
+    JSONObject json = _compiler.compile(bql);
     JSONObject expected = new JSONObject("{\"meta\":{\"select_list\":[\"*\"]}}");
     assertTrue(_comp.isEquals(json, expected));
+
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    // empty thrift request means MatchAllQuery
+    assertEquals("Request()", thriftRequest.toString());
   }
 
   @Test
@@ -70,11 +81,16 @@ public class TestBQL {
     System.out.println("testOrderBy");
     System.out.println("==================================================");
 
-    JSONObject json = _compiler.compile("SELECT category " + "FROM cars " + "ORDER BY color");
+    String bql = "SELECT category " + "FROM cars " + "ORDER BY color";
+    JSONObject json = _compiler.compile(bql);
 
     JSONObject expected = new JSONObject(
         "{\"sort\": [{\"color\": \"asc\"}], \"meta\":{\"select_list\":[\"category\"]}}");
     assertTrue(_comp.isEquals(json, expected));
+
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    assertEquals("Request(sortFields:[SortField(mode:CUSTOM, field:color, reverse:false)])",
+        thriftRequest.toString());
   }
 
   @Test
@@ -82,11 +98,17 @@ public class TestBQL {
     System.out.println("testOrderBy2");
     System.out.println("==================================================");
 
-    JSONObject json = _compiler.compile("SELECT category " + "FROM cars "
-        + "ORDER BY color, price DESC, year ASC");
+    String bql = "SELECT category " + "FROM cars "
+        + "ORDER BY color, price DESC, year ASC";
+    JSONObject json = _compiler.compile(bql);
     JSONObject expected = new JSONObject(
         "{\"sort\": [{\"color\": \"asc\"},{\"price\": \"desc\"},{\"year\": \"asc\"}], \"meta\":{\"select_list\":[\"category\"]}}");
     assertTrue(_comp.isEquals(json, expected));
+
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    assertEquals("Request(sortFields:[SortField(mode:CUSTOM, field:color, reverse:false), " +
+        "SortField(mode:CUSTOM, field:price, reverse:true), " +
+        "SortField(mode:CUSTOM, field:year, reverse:false)])", thriftRequest.toString());
   }
 
   @Test
@@ -94,10 +116,13 @@ public class TestBQL {
     System.out.println("testOrderByRelevance");
     System.out.println("==================================================");
 
-    JSONObject json = _compiler.compile("SELECT category " + "FROM cars " + "ORDER BY relevance");
+    String bql = "SELECT category " + "FROM cars " + "ORDER BY relevance";
+    JSONObject json = _compiler.compile(bql);
     JSONObject expected = new JSONObject(
         "{\"sort\":[\"relevance\"],\"meta\":{\"select_list\":[\"category\"]}}");
     assertTrue(_comp.isEquals(json, expected));
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    assertEquals("Request(sortFields:[SortField(mode:SCORE)])", thriftRequest.toString());
   }
 
   @Test
@@ -105,10 +130,13 @@ public class TestBQL {
     System.out.println("testLimit1");
     System.out.println("==================================================");
 
-    JSONObject json = _compiler.compile("SELECT category " + "FROM cars " + "LIMIT 123");
+    String bql = "SELECT category " + "FROM cars " + "LIMIT 123";
+    JSONObject json = _compiler.compile(bql);
     JSONObject expected = new JSONObject(
         "{\"from\": 0, \"size\": 123, \"meta\":{\"select_list\":[\"category\"]}}");
     assertTrue(_comp.isEquals(json, expected));
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    assertEquals("Request(pagingParam:PagingParam(offset:0, count:123))", thriftRequest.toString());
   }
 
   @Test
@@ -116,10 +144,13 @@ public class TestBQL {
     System.out.println("testLimit2");
     System.out.println("==================================================");
 
-    JSONObject json = _compiler.compile("SELECT category " + "FROM cars " + "LIMIT 15, 30");
+    String bql = "SELECT category " + "FROM cars " + "LIMIT 15, 30";
+    JSONObject json = _compiler.compile(bql);
     JSONObject expected = new JSONObject(
         "{\"from\": 15, \"size\": 30, \"meta\":{\"select_list\":[\"category\"]}}");
     assertTrue(_comp.isEquals(json, expected));
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    assertEquals("Request(pagingParam:PagingParam(offset:15, count:30))", thriftRequest.toString());
   }
 
   @Test
@@ -127,10 +158,14 @@ public class TestBQL {
     System.out.println("testExplain");
     System.out.println("==================================================");
 
-    JSONObject json = _compiler.compile("SELECT category " + "FROM cars EXPLAIN " + "LIMIT 15, 30");
+    String bql = "SELECT category " + "FROM cars EXPLAIN " + "LIMIT 15, 30";
+    JSONObject json = _compiler.compile(bql);
     JSONObject expected = new JSONObject(
         "{\"from\": 15, \"size\": 30, \"meta\":{\"select_list\":[\"category\"]}, \"explain\": true}");
     assertTrue(_comp.isEquals(json, expected));
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    assertEquals("Request(pagingParam:PagingParam(offset:15, count:30), explain:true)",
+        thriftRequest.toString());
   }
 
   @Test
@@ -172,10 +207,15 @@ public class TestBQL {
     System.out.println("testEqualPredInteger");
     System.out.println("==================================================");
 
-    JSONObject json = _compiler.compile("SELECT category " + "FROM cars " + "WHERE year = 1999");
+    String bql = "SELECT category " + "FROM cars " + "WHERE year = 1999";
+    JSONObject json = _compiler.compile(bql);
     JSONObject expected = new JSONObject(
         "{\"filter\":{\"range\":{\"year\":{\"to\":1999,\"include_lower\":true,\"include_upper\":true,\"from\":1999}}}, \"meta\":{\"select_list\":[\"category\"]}}");
     assertTrue(_comp.isEquals(json, expected));
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    assertEquals("Request(filter:Filter(rangeFilter:RangeFilter(field:year, " +
+            "startValue:1999, endValue:1999, startClosed:true, endClosed:true)))",
+        thriftRequest.toString());
   }
 
   @Test
@@ -183,11 +223,16 @@ public class TestBQL {
     System.out.println("testEqualPredFloat");
     System.out.println("==================================================");
 
-    JSONObject json = _compiler
-        .compile("SELECT category " + "FROM cars " + "WHERE price = 1500.99");
+    String bql = "SELECT category " + "FROM cars " + "WHERE price = 1500.99";
+    JSONObject json = _compiler.compile(bql);
     JSONObject expected = new JSONObject(
         "{\"filter\":{\"range\":{\"price\":{\"to\":1500.99,\"include_lower\":true,\"include_upper\":true,\"from\":1500.99}}}, \"meta\":{\"select_list\":[\"category\"]}}");
     assertTrue(_comp.isEquals(json, expected));
+
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    assertEquals("Request(filter:Filter(rangeFilter:RangeFilter(field:price, " +
+            "startValue:1500.99, endValue:1500.99, startClosed:true, endClosed:true)))",
+        thriftRequest.toString());
   }
 
   @Test
@@ -195,10 +240,16 @@ public class TestBQL {
     System.out.println("testEqualPredString");
     System.out.println("==================================================");
 
-    JSONObject json = _compiler.compile("SELECT category " + "FROM cars " + "WHERE color = 'red'");
+    String bql = "SELECT category " + "FROM cars " + "WHERE color = 'red'";
+    JSONObject json = _compiler.compile(bql);
     JSONObject expected = new JSONObject(
         "{\"filter\": {\"term\": {\"color\": {\"value\": \"red\"}}}, \"meta\":{\"select_list\":[\"category\"]}}");
     assertTrue(_comp.isEquals(json, expected));
+
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    assertEquals(
+        "Request(filter:Filter(termFilter:TermFilter(field:color, values:[red], occur:MUST)))",
+        thriftRequest.toString());
   }
 
   @Test
@@ -206,11 +257,15 @@ public class TestBQL {
     System.out.println("testInPred1");
     System.out.println("==================================================");
 
-    JSONObject json = _compiler.compile("SELECT category " + "FROM cars "
-        + "WHERE color IN ('red', 'blue', 'yellow')");
+    String bql = "SELECT category " + "FROM cars " + "WHERE color IN ('red', 'blue', 'yellow')";
+    JSONObject json = _compiler.compile(bql);
     JSONObject expected = new JSONObject(
         "{\"filter\":{\"terms\":{\"color\":{\"values\":[\"red\",\"blue\",\"yellow\"],\"excludes\":[],\"operator\":\"or\"}}}, \"meta\":{\"select_list\":[\"category\"]}}");
     assertTrue(_comp.isEquals(json, expected));
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    assertEquals(
+        "Request(filter:Filter(termFilter:TermFilter(field:color, values:[red, blue, yellow], occur:SHOULD)))",
+        thriftRequest.toString());
   }
 
   @Test
@@ -218,11 +273,15 @@ public class TestBQL {
     System.out.println("testInPred2");
     System.out.println("==================================================");
 
-    JSONObject json = _compiler.compile("SELECT category " + "FROM cars "
-        + "WHERE nonfacet IN ('red')");
+    String bql = "SELECT category " + "FROM cars " + "WHERE nonfacet IN ('red')";
+    JSONObject json = _compiler.compile(bql);
     JSONObject expected = new JSONObject(
         "{\"filter\":{\"terms\":{\"nonfacet\":{\"values\":[\"red\"],\"excludes\":[],\"operator\":\"or\"}}}, \"meta\":{\"select_list\":[\"category\"]}}");
     assertTrue(_comp.isEquals(json, expected));
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    assertEquals(
+        "Request(filter:Filter(termFilter:TermFilter(field:nonfacet, values:[red], occur:SHOULD)))",
+        thriftRequest.toString());
   }
 
   @SuppressWarnings("unused")
@@ -246,11 +305,16 @@ public class TestBQL {
     System.out.println("testNotInPred");
     System.out.println("==================================================");
 
-    JSONObject json = _compiler.compile("SELECT category " + "FROM cars "
-        + "WHERE color NOT IN ('red', 'blue', 'yellow') EXCEPT ('black', 'green')");
+    String bql = "SELECT category " + "FROM cars "
+        + "WHERE color NOT IN ('red', 'blue', 'yellow') EXCEPT ('black', 'green')";
+    JSONObject json = _compiler.compile(bql);
     JSONObject expected = new JSONObject(
         "{\"filter\":{\"terms\":{\"color\":{\"excludes\":[\"red\",\"blue\",\"yellow\"],\"values\":[\"black\", \"green\"],\"operator\":\"or\"}}}, \"meta\":{\"select_list\":[\"category\"]}}");
     assertTrue(_comp.isEquals(json, expected));
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    assertEquals(
+        "Request(filter:Filter(termFilter:TermFilter(field:color, values:[black, green], excludes:[red, blue, yellow], occur:SHOULD)))",
+        thriftRequest.toString());
   }
 
   @Test
@@ -258,11 +322,16 @@ public class TestBQL {
     System.out.println("testContainsAll");
     System.out.println("==================================================");
 
-    JSONObject json = _compiler.compile("SELECT category " + "FROM cars "
-        + "WHERE color CONTAINS ALL ('red', 'blue', 'yellow') EXCEPT ('black', 'green')");
+    String bql = "SELECT category " + "FROM cars "
+        + "WHERE color CONTAINS ALL ('red', 'blue', 'yellow') EXCEPT ('black', 'green')";
+    JSONObject json = _compiler.compile(bql);
     JSONObject expected = new JSONObject(
         "{\"filter\":{\"terms\":{\"color\":{\"values\":[\"red\",\"blue\",\"yellow\"],\"excludes\":[\"black\", \"green\"],\"operator\":\"and\"}}}, \"meta\":{\"select_list\":[\"category\"]}}");
     assertTrue(_comp.isEquals(json, expected));
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    assertEquals(
+        "Request(filter:Filter(termFilter:TermFilter(field:color, values:[red, blue, yellow], excludes:[black, green], occur:MUST)))",
+        thriftRequest.toString());
   }
 
   @Test
@@ -299,10 +368,15 @@ public class TestBQL {
     System.out.println("testNotEqualPred");
     System.out.println("==================================================");
 
-    JSONObject json = _compiler.compile("SELECT category " + "FROM cars " + "WHERE color <> 'red'");
+    String bql = "SELECT category " + "FROM cars " + "WHERE color <> 'red'";
+    JSONObject json = _compiler.compile(bql);
     JSONObject expected = new JSONObject(
         "{\"filter\":{\"terms\":{\"color\":{\"values\":[],\"excludes\":[\"red\"],\"operator\":\"or\"}}}, \"meta\":{\"select_list\":[\"category\"]}}");
     assertTrue(_comp.isEquals(json, expected));
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    assertEquals(
+        "Request(filter:Filter(termFilter:TermFilter(field:color, excludes:[red], occur:SHOULD)))",
+        thriftRequest.toString());
   }
 
   @Test
@@ -310,10 +384,17 @@ public class TestBQL {
     System.out.println("testNotEqualForRange");
     System.out.println("==================================================");
 
-    JSONObject json = _compiler.compile("SELECT * " + "FROM cars " + "WHERE year <> 2000");
+    String bql = "SELECT * " + "FROM cars " + "WHERE year <> 2000";
+    JSONObject json = _compiler.compile(bql);
     JSONObject expected = new JSONObject(
         "{\"filter\":{\"or\":[{\"range\":{\"year\":{\"to\":2000,\"include_upper\":false}}},{\"range\":{\"year\":{\"include_lower\":false,\"from\":2000}}}]},\"meta\":{\"select_list\":[\"*\"]}}");
     assertTrue(_comp.isEquals(json, expected));
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    assertEquals("Request(filter:Filter(booleanFilter:BooleanFilter(" +
+            "filters:[BooleanSubFilter(occur:SHOULD, filter:Filter(rangeFilter:RangeFilter(field:year, startValue:null, endValue:2000, startClosed:false, endClosed:false))), "
+            +
+            "BooleanSubFilter(occur:SHOULD, filter:Filter(rangeFilter:RangeFilter(field:year, startValue:2000, endValue:null, startClosed:false, endClosed:false)))])))",
+        thriftRequest.toString());
   }
 
   @Test
@@ -321,11 +402,15 @@ public class TestBQL {
     System.out.println("testQueryIs");
     System.out.println("==================================================");
 
-    JSONObject json = _compiler.compile("SELECT category " + "FROM cars "
-        + "WHERE QUERY IS 'cool AND moon-roof'");
+    String bql = "SELECT category " + "FROM cars " + "WHERE QUERY IS 'cool AND moon-roof'";
+    JSONObject json = _compiler.compile(bql);
     JSONObject expected = new JSONObject(
         "{\"query\":{\"query_string\":{\"query\":\"cool AND moon-roof\"}}, \"meta\":{\"select_list\":[\"category\"]}}");
     assertTrue(_comp.isEquals(json, expected));
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    assertEquals(
+        "Request(query:Query(stringQuery:StringQuery(query:cool AND moon-roof, occur:SHOULD)))",
+        thriftRequest.toString());
   }
 
   @Test
@@ -333,13 +418,21 @@ public class TestBQL {
     System.out.println("testQueryAndSelection1");
     System.out.println("==================================================");
 
-    JSONObject json = _compiler.compile("SELECT category " + "FROM cars "
+    String bql = "SELECT category " + "FROM cars "
         + "WHERE QUERY IS 'cool AND moon-roof' "
         + "AND color = 'red'                                -- LINE COMMENTS\n"
-        + "AND category = 'sedan'");
+        + "AND category = 'sedan'";
+    JSONObject json = _compiler.compile(bql);
     JSONObject expected = new JSONObject(
         "{\"query\":{\"query_string\":{\"query\":\"cool AND moon-roof\"}},\"filter\":{\"and\":[{\"term\":{\"color\":{\"value\":\"red\"}}},{\"term\":{\"category\":{\"value\":\"sedan\"}}}]}, \"meta\":{\"select_list\":[\"category\"]}}");
     assertTrue(_comp.isEquals(json, expected));
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    assertEquals(
+        "Request(query:Query(stringQuery:StringQuery(query:cool AND moon-roof, occur:SHOULD)), " +
+            "filter:Filter(booleanFilter:BooleanFilter(filters:[BooleanSubFilter(occur:MUST, " +
+            "filter:Filter(termFilter:TermFilter(field:color, values:[red], occur:MUST))), " +
+            "BooleanSubFilter(occur:MUST, filter:Filter(termFilter:TermFilter(field:category, values:[sedan], occur:MUST)))])))",
+        thriftRequest.toString());
   }
 
   @Test
@@ -347,11 +440,17 @@ public class TestBQL {
     System.out.println("testQueryAndSelection2");
     System.out.println("==================================================");
 
-    JSONObject json = _compiler.compile("SELECT category " + "FROM cars "
-        + "WHERE QUERY IS 'cool AND moon-roof' " + "AND age = 12 ");
+    String bql = "SELECT category " + "FROM cars " + "WHERE QUERY IS 'cool AND moon-roof' "
+        + "AND age = 12 ";
+    JSONObject json = _compiler.compile(bql);
     JSONObject expected = new JSONObject(
         "{\"query\":{\"query_string\":{\"query\":\"cool AND moon-roof\"}},\"filter\":{\"term\":{\"age\":{\"value\":12}}}, \"meta\":{\"select_list\":[\"category\"]}}");
     assertTrue(_comp.isEquals(json, expected));
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    assertEquals(
+        "Request(query:Query(stringQuery:StringQuery(query:cool AND moon-roof, occur:SHOULD)), " +
+            "filter:Filter(termFilter:TermFilter(field:age, values:[12], occur:MUST)))",
+        thriftRequest.toString());
   }
 
   @Test
@@ -359,10 +458,15 @@ public class TestBQL {
     System.out.println("testBrowseBy1");
     System.out.println("==================================================");
 
-    JSONObject json = _compiler.compile("SELECT category " + "FROM cars " + "BROWSE BY color");
+    String bql = "SELECT category " + "FROM cars " + "BROWSE BY color";
+    JSONObject json = _compiler.compile(bql);
     JSONObject expected = new JSONObject(
         "{\"facets\":{\"color\":{\"max\":5,\"order\":\"hits\",\"expand\":false,\"minhit\":1}}, \"meta\":{\"select_list\":[\"category\"]}}");
     assertTrue(_comp.isEquals(json, expected));
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    assertEquals(
+        "Request(facetParams:{color=FacetParam(mode:HITS_DESC, maxNumValues:5, minCount:1)})",
+        thriftRequest.toString());
   }
 
   @Test
@@ -370,11 +474,18 @@ public class TestBQL {
     System.out.println("testBrowseBy2");
     System.out.println("==================================================");
 
-    JSONObject json = _compiler.compile("SELECT category " + "FROM cars "
-        + "BROWSE BY color, price(true, 1, 20, value), year");
+    String bql = "SELECT category " + "FROM cars "
+        + "BROWSE BY color, price(true, 1, 20, value), year";
+    JSONObject json = _compiler.compile(bql);
     JSONObject expected = new JSONObject(
         "{\"facets\":{\"price\":{\"max\":20,\"order\":\"val\",\"expand\":true,\"minhit\":1},\"color\":{\"max\":5,\"order\":\"hits\",\"expand\":false,\"minhit\":1},\"year\":{\"max\":5,\"order\":\"hits\",\"expand\":false,\"minhit\":1}}, \"meta\":{\"select_list\":[\"category\"]}}");
     assertTrue(_comp.isEquals(json, expected));
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    assertEquals(
+        "Request(facetParams:{price=FacetParam(mode:VALUE_ASC, maxNumValues:20, minCount:1), " +
+            "color=FacetParam(mode:HITS_DESC, maxNumValues:5, minCount:1), " +
+            "year=FacetParam(mode:HITS_DESC, maxNumValues:5, minCount:1)})",
+        thriftRequest.toString());
   }
 
   @Test
@@ -382,11 +493,16 @@ public class TestBQL {
     System.out.println("testBetweenPred");
     System.out.println("==================================================");
 
-    JSONObject json = _compiler.compile("SELECT category " + "FROM cars "
-        + "WHERE year BETWEEN 2000 AND 2001");
+    String bql = "SELECT category " + "FROM cars "
+        + "WHERE year BETWEEN 2000 AND 2001";
+    JSONObject json = _compiler.compile(bql);
     JSONObject expected = new JSONObject(
         "{\"filter\":{\"range\":{\"year\":{\"to\":2001,\"include_lower\":true,\"include_upper\":true,\"from\":2000}}}, \"meta\":{\"select_list\":[\"category\"]}}");
     assertTrue(_comp.isEquals(json, expected));
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    assertEquals(
+        "Request(filter:Filter(rangeFilter:RangeFilter(field:year, startValue:2000, endValue:2001, startClosed:true, endClosed:true)))",
+        thriftRequest.toString());
   }
 
   @Test
@@ -394,9 +510,12 @@ public class TestBQL {
     System.out.println("testFetchingStored1");
     System.out.println("==================================================");
 
-    JSONObject json = _compiler.compile("SELECT * " + "FROM cars " + "FETCHING STORED FALSE");
+    String bql = "SELECT * " + "FROM cars " + "FETCHING STORED FALSE";
+    JSONObject json = _compiler.compile(bql);
     JSONObject expected = new JSONObject("{\"meta\":{\"select_list\":[\"*\"]}}");
     assertTrue(_comp.isEquals(json, expected));
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    assertEquals("Request()", thriftRequest.toString());
   }
 
   @Test
@@ -404,10 +523,13 @@ public class TestBQL {
     System.out.println("testFetchingStored2");
     System.out.println("==================================================");
 
-    JSONObject json = _compiler.compile("SELECT * " + "FROM cars " + "FETCHING STORED true");
+    String bql = "SELECT * " + "FROM cars " + "FETCHING STORED true";
+    JSONObject json = _compiler.compile(bql);
     JSONObject expected = new JSONObject(
         "{\"fetchStored\":true, \"meta\":{\"select_list\":[\"*\"]}}");
     assertTrue(_comp.isEquals(json, expected));
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    assertEquals("Request(fetchSrcData:true)", thriftRequest.toString());
   }
 
   @Test
@@ -415,11 +537,17 @@ public class TestBQL {
     System.out.println("testNotBetweenPred");
     System.out.println("==================================================");
 
-    JSONObject json = _compiler.compile("SELECT category " + "FROM cars "
-        + "WHERE year NOT BETWEEN 2000 AND 2002");
+    String bql = "SELECT category " + "FROM cars " + "WHERE year NOT BETWEEN 2000 AND 2002";
+    JSONObject json = _compiler.compile(bql);
     JSONObject expected = new JSONObject(
         "{\"filter\":{\"or\":[{\"range\":{\"year\":{\"to\":2000,\"include_upper\":false}}},{\"range\":{\"year\":{\"include_lower\":false,\"from\":2002}}}]}, \"meta\":{\"select_list\":[\"category\"]}}");
     assertTrue(_comp.isEquals(json, expected));
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    assertEquals("Request(filter:Filter(booleanFilter:BooleanFilter(filters:" +
+            "[BooleanSubFilter(occur:SHOULD, filter:Filter(rangeFilter:RangeFilter(field:year, startValue:null, endValue:2000, startClosed:false, endClosed:false))), "
+            +
+            "BooleanSubFilter(occur:SHOULD, filter:Filter(rangeFilter:RangeFilter(field:year, startValue:2002, endValue:null, startClosed:false, endClosed:false)))])))",
+        thriftRequest.toString());
   }
 
   @Test
@@ -427,10 +555,15 @@ public class TestBQL {
     System.out.println("testRangePred1");
     System.out.println("==================================================");
 
-    JSONObject json = _compiler.compile("SELECT year " + "FROM cars " + "WHERE year > 1999");
+    String bql = "SELECT year " + "FROM cars " + "WHERE year > 1999";
+    JSONObject json = _compiler.compile(bql);
     JSONObject expected = new JSONObject(
         "{\"filter\":{\"range\":{\"year\":{\"from\":1999,\"include_lower\":false}}}, \"meta\":{\"select_list\":[\"year\"]}}");
     assertTrue(_comp.isEquals(json, expected));
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    assertEquals("Request(filter:Filter(rangeFilter:RangeFilter" +
+            "(field:year, startValue:1999, endValue:null, startClosed:false, endClosed:false)))",
+        thriftRequest.toString());
   }
 
   @Test
@@ -438,10 +571,15 @@ public class TestBQL {
     System.out.println("testRangePred2");
     System.out.println("==================================================");
 
-    JSONObject json = _compiler.compile("SELECT year " + "FROM cars " + "WHERE year <= 2000");
+    String bql = "SELECT year " + "FROM cars " + "WHERE year <= 2000";
+    JSONObject json = _compiler.compile(bql);
     JSONObject expected = new JSONObject(
         "{\"filter\":{\"range\":{\"year\":{\"to\":2000,\"include_upper\":true}}}, \"meta\":{\"select_list\":[\"year\"]}}");
     assertTrue(_comp.isEquals(json, expected));
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    assertEquals("Request(filter:Filter(rangeFilter:RangeFilter" +
+            "(field:year, startValue:null, endValue:2000, startClosed:false, endClosed:true)))",
+        thriftRequest.toString());
   }
 
   @Test
@@ -449,11 +587,16 @@ public class TestBQL {
     System.out.println("testRangePred3");
     System.out.println("==================================================");
 
-    JSONObject json = _compiler.compile("SELECT year " + "FROM cars "
-        + "WHERE year > 1999 AND year <= 2003 AND year >= 1999");
+    String bql =
+        "SELECT year " + "FROM cars " + "WHERE year > 1999 AND year <= 2003 AND year >= 1999";
+    JSONObject json = _compiler.compile(bql);
     JSONObject expected = new JSONObject(
         "{\"filter\":{\"range\":{\"year\":{\"to\":2003,\"include_lower\":false,\"include_upper\":true,\"from\":1999}}}, \"meta\":{\"select_list\":[\"year\"]}}");
     assertTrue(_comp.isEquals(json, expected));
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    assertEquals("Request(filter:Filter(rangeFilter:RangeFilter" +
+            "(field:year, startValue:1999, endValue:2003, startClosed:false, endClosed:true)))",
+        thriftRequest.toString());
   }
 
   @Test
@@ -461,11 +604,16 @@ public class TestBQL {
     System.out.println("testRangePred4");
     System.out.println("==================================================");
 
-    JSONObject json = _compiler.compile("SELECT * " + "FROM cars "
-        + "WHERE name > 'abc' AND name < 'xyz' AND name >= 'ddd'");
+    String bql =
+        "SELECT * " + "FROM cars " + "WHERE name > 'abc' AND name < 'xyz' AND name >= 'ddd'";
+    JSONObject json = _compiler.compile(bql);
     JSONObject expected = new JSONObject(
         "{\"filter\":{\"range\":{\"name\":{\"to\":\"xyz\",\"include_lower\":true,\"include_upper\":false,\"from\":\"ddd\"}}}, \"meta\":{\"select_list\":[\"*\"]}}");
     assertTrue(_comp.isEquals(json, expected));
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    assertEquals("Request(filter:Filter(rangeFilter:RangeFilter" +
+            "(field:name, startValue:ddd, endValue:xyz, startClosed:true, endClosed:false)))",
+        thriftRequest.toString());
   }
 
   @SuppressWarnings("unused")
@@ -489,11 +637,19 @@ public class TestBQL {
     System.out.println("testOrPred");
     System.out.println("==================================================");
 
-    JSONObject json = _compiler.compile("SELECT color " + "FROM cars "
-        + "WHERE color = 'red' OR year > 1995");
+    String bql = "SELECT color " + "FROM cars " + "WHERE color = 'red' OR year > 1995";
+    JSONObject json = _compiler.compile(bql);
     JSONObject expected = new JSONObject(
         "{\"filter\":{\"or\":[{\"term\":{\"color\":{\"value\":\"red\"}}},{\"range\":{\"year\":{\"include_lower\":false,\"from\":1995}}}]}, \"meta\":{\"select_list\":[\"color\"]}}");
     assertTrue(_comp.isEquals(json, expected));
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    assertEquals(
+        "Request(filter:Filter(booleanFilter:BooleanFilter(filters:[BooleanSubFilter(occur:SHOULD, "
+            +
+            "filter:Filter(termFilter:TermFilter(field:color, values:[red], occur:MUST))), " +
+            "BooleanSubFilter(occur:SHOULD, filter:Filter(rangeFilter:" +
+            "RangeFilter(field:year, startValue:1995, endValue:null, startClosed:false, endClosed:false)))])))",
+        thriftRequest.toString());
   }
 
   @Test
@@ -501,11 +657,18 @@ public class TestBQL {
     System.out.println("testAndPred");
     System.out.println("==================================================");
 
-    JSONObject json = _compiler.compile("SELECT color " + "FROM cars "
-        + "WHERE color = 'red' AND year > 1995");
+    String bql = "SELECT color " + "FROM cars " + "WHERE color = 'red' AND year > 1995";
+    JSONObject json = _compiler.compile(bql);
     JSONObject expected = new JSONObject(
         "{\"filter\":{\"and\":[{\"term\":{\"color\":{\"value\":\"red\"}}},{\"range\":{\"year\":{\"include_lower\":false,\"from\":1995}}}]}, \"meta\":{\"select_list\":[\"color\"]}}");
     assertTrue(_comp.isEquals(json, expected));
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    assertEquals("Request(filter:Filter(booleanFilter:BooleanFilter(" +
+            "filters:[BooleanSubFilter(occur:MUST, filter:Filter(termFilter:TermFilter(field:color, values:[red], occur:MUST))), "
+            +
+            "BooleanSubFilter(occur:MUST, filter:Filter(rangeFilter:" +
+            "RangeFilter(field:year, startValue:1995, endValue:null, startClosed:false, endClosed:false)))])))",
+        thriftRequest.toString());
   }
 
   @Test
@@ -513,12 +676,25 @@ public class TestBQL {
     System.out.println("testAndOrPred");
     System.out.println("==================================================");
 
-    JSONObject json = _compiler.compile("SELECT color " + "FROM cars "
+    String bql = "SELECT color " + "FROM cars "
         + "WHERE (color = 'red' OR color = 'blue') "
-        + "   OR (color = 'black' AND tags CONTAINS ALL ('hybrid', 'moon-roof', 'leather'))");
+        + "   OR (color = 'black' AND tags CONTAINS ALL ('hybrid', 'moon-roof', 'leather'))";
+    JSONObject json = _compiler.compile(bql);
     JSONObject expected = new JSONObject(
         "{\"filter\":{\"or\":[{\"or\":[{\"term\":{\"color\":{\"value\":\"red\"}}},{\"term\":{\"color\":{\"value\":\"blue\"}}}]},{\"and\":[{\"term\":{\"color\":{\"value\":\"black\"}}},{\"terms\":{\"tags\":{\"values\":[\"hybrid\",\"moon-roof\",\"leather\"],\"excludes\":[],\"operator\":\"and\"}}}]}]}, \"meta\":{\"select_list\":[\"color\"]}}");
     assertTrue(_comp.isEquals(json, expected));
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    assertEquals("Request(filter:Filter(booleanFilter:BooleanFilter(filters:[" +
+            "BooleanSubFilter(occur:SHOULD, filter:Filter(booleanFilter:BooleanFilter(filters:[" +
+            "BooleanSubFilter(occur:SHOULD, filter:Filter(termFilter:TermFilter(field:color, values:[red], occur:MUST))), "
+            +
+            "BooleanSubFilter(occur:SHOULD, filter:Filter(termFilter:TermFilter(field:color, values:[blue], occur:MUST)))]))), "
+            +
+            "BooleanSubFilter(occur:SHOULD, filter:Filter(booleanFilter:BooleanFilter(filters:[" +
+            "BooleanSubFilter(occur:MUST, filter:Filter(termFilter:TermFilter(field:color, values:[black], occur:MUST))), "
+            +
+            "BooleanSubFilter(occur:MUST, filter:Filter(termFilter:TermFilter(field:tags, values:[hybrid, moon-roof, leather], occur:MUST)))])))])))",
+        thriftRequest.toString());
   }
 
   @Test
@@ -527,11 +703,17 @@ public class TestBQL {
     System.out.println("==================================================");
 
     // Here "age" is not a facet, so we have to treat it as a filter
-    JSONObject json = _compiler.compile("SELECT color " + "FROM cars "
-        + "WHERE color = 'red' AND age > 25");
+    String bql = "SELECT color " + "FROM cars " + "WHERE color = 'red' AND age > 25";
+    JSONObject json = _compiler.compile(bql);
     JSONObject expected = new JSONObject(
         "{\"filter\":{\"and\":[{\"term\":{\"color\":{\"value\":\"red\"}}},{\"range\":{\"age\":{\"include_lower\":false,\"from\":25}}}]}, \"meta\":{\"select_list\":[\"color\"]}}");
     assertTrue(_comp.isEquals(json, expected));
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    assertEquals("Request(filter:Filter(booleanFilter:BooleanFilter(filters:[" +
+            "BooleanSubFilter(occur:MUST, filter:Filter(termFilter:TermFilter(field:color, values:[red], occur:MUST))), "
+            +
+            "BooleanSubFilter(occur:MUST, filter:Filter(rangeFilter:RangeFilter(field:age, startValue:25, endValue:null, startClosed:false, endClosed:false)))])))",
+        thriftRequest.toString());
   }
 
   @Test
@@ -539,12 +721,25 @@ public class TestBQL {
     System.out.println("testMultipleQueries");
     System.out.println("==================================================");
 
-    JSONObject json = _compiler.compile("SELECT color " + "FROM cars "
+    String bql = "SELECT color " + "FROM cars "
         + "WHERE (color = 'red' AND query is 'hybrid AND cool') "
-        + "   OR (color = 'blue' AND query is 'moon-roof AND navigation')");
+        + "   OR (color = 'blue' AND query is 'moon-roof AND navigation')";
+    JSONObject json = _compiler.compile(bql);
     JSONObject expected = new JSONObject(
         "{\"filter\":{\"or\":[{\"and\":[{\"term\":{\"color\":{\"value\":\"red\"}}},{\"query\":{\"query_string\":{\"query\":\"hybrid AND cool\"}}}]},{\"and\":[{\"term\":{\"color\":{\"value\":\"blue\"}}},{\"query\":{\"query_string\":{\"query\":\"moon-roof AND navigation\"}}}]}]}, \"meta\":{\"select_list\":[\"color\"]}}");
     assertTrue(_comp.isEquals(json, expected));
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    assertEquals("Request(filter:Filter(booleanFilter:BooleanFilter(filters:[" +
+            "BooleanSubFilter(occur:SHOULD, filter:Filter(booleanFilter:BooleanFilter(filters:[" +
+            "BooleanSubFilter(occur:MUST, filter:Filter(termFilter:TermFilter(field:color, values:[red], occur:MUST))), "
+            +
+            "BooleanSubFilter(occur:MUST, filter:Filter(queryFilter:QueryFilter(query:Query(stringQuery:StringQuery(query:hybrid AND cool, occur:SHOULD)))))]))), "
+            +
+            "BooleanSubFilter(occur:SHOULD, filter:Filter(booleanFilter:BooleanFilter(filters:[" +
+            "BooleanSubFilter(occur:MUST, filter:Filter(termFilter:TermFilter(field:color, values:[blue], occur:MUST))), "
+            +
+            "BooleanSubFilter(occur:MUST, filter:Filter(queryFilter:QueryFilter(query:Query(stringQuery:StringQuery(query:moon-roof AND navigation, occur:SHOULD)))))])))])))",
+        thriftRequest.toString());
   }
 
   @Test
@@ -552,11 +747,15 @@ public class TestBQL {
     System.out.println("testMatchPred");
     System.out.println("==================================================");
 
-    JSONObject json = _compiler.compile("SELECT color " + "FROM cars "
-        + "WHERE MATCH(f1, f2) AGAINST('text1 AND text2')");
+    String bql = "SELECT color " + "FROM cars " + "WHERE MATCH(f1, f2) AGAINST('text1 AND text2')";
+    JSONObject json = _compiler.compile(bql);
     JSONObject expected = new JSONObject(
         "{\"query\":{\"query_string\":{\"query\":\"text1 AND text2\",\"fields\":[\"f1\",\"f2\"]}}, \"meta\":{\"select_list\":[\"color\"]}}");
     assertTrue(_comp.isEquals(json, expected));
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    assertEquals(
+        "Request(query:Query(stringQuery:StringQuery(query:text1 AND text2, fields:[f1, f2], occur:SHOULD)))",
+        thriftRequest.toString());
   }
 
   @Test
@@ -564,11 +763,16 @@ public class TestBQL {
     System.out.println("testNotMatchPred");
     System.out.println("==================================================");
 
-    JSONObject json = _compiler.compile("SELECT color " + "FROM cars "
-        + "WHERE NOT MATCH(color) AGAINST('red')");
+    String bql = "SELECT color " + "FROM cars " + "WHERE NOT MATCH(color) AGAINST('red')";
+    JSONObject json = _compiler.compile(bql);
     JSONObject expected = new JSONObject(
         "{\"filter\":{\"bool\":{\"must_not\":{\"query\":{\"query_string\":{\"query\":\"red\",\"fields\":[\"color\"]}}}}},\"meta\":{\"select_list\":[\"color\"]}}");
     assertTrue(_comp.isEquals(json, expected));
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    assertEquals("Request(filter:Filter(booleanFilter:BooleanFilter(filters:" +
+            "[BooleanSubFilter(occur:MUST_NOT, filter:Filter(queryFilter:" +
+            "QueryFilter(query:Query(stringQuery:StringQuery(query:red, fields:[color], occur:SHOULD)))))])))",
+        thriftRequest.toString());
   }
 
   @Test
@@ -576,10 +780,14 @@ public class TestBQL {
     System.out.println("testLikePredicate1");
     System.out.println("==================================================");
 
-    JSONObject json = _compiler.compile("SELECT * " + "FROM cars " + "WHERE category LIKE 's_d%'");
+    String bql = "SELECT * " + "FROM cars " + "WHERE category LIKE 's_d%'";
+    JSONObject json = _compiler.compile(bql);
     JSONObject expected = new JSONObject(
         "{\"query\":{\"wildcard\":{\"category\":\"s?d*\"}},\"meta\":{\"select_list\":[\"*\"]}}");
     assertTrue(_comp.isEquals(json, expected));
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    assertEquals("Request(query:Query(wildcardQuery:WildcardQuery(query:s?d*, field:category)))",
+        thriftRequest.toString());
   }
 
   @Test
@@ -587,10 +795,14 @@ public class TestBQL {
     System.out.println("testLikePredicate2");
     System.out.println("==================================================");
 
-    JSONObject json = _compiler.compile("SELECT * " + "FROM cars " + "WHERE category LIKE 'sed*'");
+    String bql = "SELECT * " + "FROM cars " + "WHERE category LIKE 'sed*'";
+    JSONObject json = _compiler.compile(bql);
     JSONObject expected = new JSONObject(
         "{\"query\":{\"wildcard\":{\"category\":\"sed*\"}},\"meta\":{\"select_list\":[\"*\"]}}");
     assertTrue(_comp.isEquals(json, expected));
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    assertEquals("Request(query:Query(wildcardQuery:WildcardQuery(query:sed*, field:category)))",
+        thriftRequest.toString());
   }
 
   @SuppressWarnings("unused")
@@ -613,10 +825,16 @@ public class TestBQL {
     System.out.println("testNotLikePredicate");
     System.out.println("==================================================");
 
-    JSONObject json = _compiler.compile("SELECT * " + "FROM cars " + "WHERE color NOT LIKE 'bl%'");
+    String bql = "SELECT * " + "FROM cars " + "WHERE color NOT LIKE 'bl%'";
+    JSONObject json = _compiler.compile(bql);
     JSONObject expected = new JSONObject(
         "{\"filter\":{\"bool\":{\"must_not\":{\"query\":{\"wildcard\":{\"color\":\"bl*\"}}}}},\"meta\":{\"select_list\":[\"*\"]}}");
     assertTrue(_comp.isEquals(json, expected));
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    assertEquals(
+        "Request(filter:Filter(booleanFilter:BooleanFilter(filters:[BooleanSubFilter(occur:MUST_NOT, "
+            + "filter:Filter(queryFilter:QueryFilter(query:Query(wildcardQuery:WildcardQuery(query:bl*, field:color)))))])))",
+        thriftRequest.toString());
   }
 
   @Test
@@ -624,12 +842,23 @@ public class TestBQL {
     System.out.println("testQueryAndLike");
     System.out.println("==================================================");
 
-    JSONObject json = _compiler.compile("SELECT color, category, tags " + "FROM cars "
+    String bql = "SELECT color, category, tags " + "FROM cars "
         + "WHERE color LIKE 'bl%' " + "  AND MATCH(contents) AGAINST('cool AND moon-roof') "
-        + "  AND category LIKE '%an'");
+        + "  AND category LIKE '%an'";
+    JSONObject json = _compiler.compile(bql);
     JSONObject expected = new JSONObject(
         "{\"query\":{\"wildcard\":{\"color\":\"bl*\"}},\"filter\":{\"and\":[{\"query\":{\"query_string\":{\"query\":\"cool AND moon-roof\",\"fields\":[\"contents\"]}}},{\"query\":{\"wildcard\":{\"category\":\"*an\"}}}]},\"meta\":{\"select_list\":[\"color\",\"category\",\"tags\"]}}");
     assertTrue(_comp.isEquals(json, expected));
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    assertEquals(
+        "Request(query:Query(wildcardQuery:WildcardQuery(query:bl*, field:color)), " +
+            "filter:Filter(booleanFilter:BooleanFilter(filters:[" +
+            "BooleanSubFilter(occur:MUST, filter:Filter(queryFilter:QueryFilter(query:" +
+            "Query(stringQuery:StringQuery(query:cool AND moon-roof, fields:[contents], occur:SHOULD))))), "
+            +
+            "BooleanSubFilter(occur:MUST, filter:Filter(queryFilter:QueryFilter(query:" +
+            "Query(wildcardQuery:WildcardQuery(query:*an, field:category)))))])))",
+        thriftRequest.toString());
   }
 
   @SuppressWarnings("unused")
@@ -764,16 +993,19 @@ public class TestBQL {
     System.out.println("testTimePred1");
     System.out.println("==================================================");
 
+    String bql = "SELECT * " + "FROM cars "
+        + "WHERE time IN LAST 1 weeks 2 day 3 hours 4 mins 5 seconds 6 msecs";
     long now = System.currentTimeMillis();
 
-    JSONObject json = _compiler.compile("SELECT * " + "FROM cars "
-        + "WHERE time IN LAST 1 weeks 2 day 3 hours 4 mins 5 seconds 6 msecs");
-
+    JSONObject json = _compiler.compile(bql);
     long timeStamp = json.getJSONObject("filter").getJSONObject("range").getJSONObject("time")
         .getLong("from");
     long timeSpan = 1 * (7 * 24 * 60 * 60 * 1000L) + 2 * (24 * 60 * 60 * 1000L) + 3
         * (60 * 60 * 1000L) + 4 * (60 * 1000L) + 5 * 1000L + 6;
 
+    assertTrue(now - timeStamp - timeSpan < 2); // Should be less than 2 msecs
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    timeStamp = Long.parseLong(thriftRequest.getFilter().getRangeFilter().getStartValue());
     assertTrue(now - timeStamp - timeSpan < 2); // Should be less than 2 msecs
   }
 
@@ -782,14 +1014,17 @@ public class TestBQL {
     System.out.println("testTimePred2");
     System.out.println("==================================================");
 
+    String bql =
+        "SELECT * " + "FROM cars " + "WHERE time SINCE 2 days 3 hours 4 minutes 6 milliseconds AGO";
     long now = System.currentTimeMillis();
-
-    JSONObject json = _compiler.compile("SELECT * " + "FROM cars "
-        + "WHERE time SINCE 2 days 3 hours 4 minutes 6 milliseconds AGO");
+    JSONObject json = _compiler.compile(bql);
 
     long timeStamp = json.getJSONObject("filter").getJSONObject("range").getJSONObject("time")
         .getLong("from");
     long timeSpan = 2 * (24 * 60 * 60 * 1000L) + 3 * (60 * 60 * 1000L) + 4 * (60 * 1000L) + 6;
+    assertTrue(now - timeStamp - timeSpan < 2); // Should be less than 2 msecs
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    timeStamp = Long.parseLong(thriftRequest.getFilter().getRangeFilter().getStartValue());
     assertTrue(now - timeStamp - timeSpan < 2); // Should be less than 2 msecs
   }
 
@@ -798,14 +1033,16 @@ public class TestBQL {
     System.out.println("testTimePred3");
     System.out.println("==================================================");
 
+    String bql = "SELECT * " + "FROM cars " + "WHERE time BEFORE 3 hours 4 mins AGO";
     long now = System.currentTimeMillis();
-
-    JSONObject json = _compiler.compile("SELECT * " + "FROM cars "
-        + "WHERE time BEFORE 3 hours 4 mins AGO");
+    JSONObject json = _compiler.compile(bql);
 
     long timeStamp = json.getJSONObject("filter").getJSONObject("range").getJSONObject("time")
         .getLong("to");
     long timeSpan = 3 * (60 * 60 * 1000L) + 4 * (60 * 1000L);
+    assertTrue(now - timeStamp - timeSpan < 2); // Should be less than 2 msecs
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    timeStamp = Long.parseLong(thriftRequest.getFilter().getRangeFilter().getEndValue());
     assertTrue(now - timeStamp - timeSpan < 2); // Should be less than 2 msecs
   }
 
@@ -814,14 +1051,16 @@ public class TestBQL {
     System.out.println("testNotTimePred1");
     System.out.println("==================================================");
 
+    String bql = "SELECT * " + "FROM cars " + "WHERE time NOT BEFORE 3 hours 4 mins AGO";
     long now = System.currentTimeMillis();
-
-    JSONObject json = _compiler.compile("SELECT * " + "FROM cars "
-        + "WHERE time NOT BEFORE 3 hours 4 mins AGO");
+    JSONObject json = _compiler.compile(bql);
 
     long timeStamp = json.getJSONObject("filter").getJSONObject("range").getJSONObject("time")
         .getLong("from");
     long timeSpan = 3 * (60 * 60 * 1000L) + 4 * (60 * 1000L);
+    assertTrue(now - timeStamp - timeSpan < 2); // Should be less than 2 msecs
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    timeStamp = Long.parseLong(thriftRequest.getFilter().getRangeFilter().getStartValue());
     assertTrue(now - timeStamp - timeSpan < 2); // Should be less than 2 msecs
   }
 
@@ -830,13 +1069,16 @@ public class TestBQL {
     System.out.println("testDateTime1");
     System.out.println("==================================================");
 
-    JSONObject json = _compiler.compile("SELECT * " + "FROM cars "
-        + "WHERE time < 2012-01-02 12:10:30");
+    String bql = "SELECT * " + "FROM cars " + "WHERE time < 2012-01-02 12:10:30";
+    JSONObject json = _compiler.compile(bql);
 
     long timeStamp = json.getJSONObject("filter").getJSONObject("range").getJSONObject("time")
         .getLong("to");
     long expected = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").parse("2012-01-02 12:10:30")
         .getTime();
+    assertEquals(timeStamp, expected);
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    timeStamp = Long.parseLong(thriftRequest.getFilter().getRangeFilter().getEndValue());
     assertEquals(timeStamp, expected);
   }
 
@@ -845,11 +1087,15 @@ public class TestBQL {
     System.out.println("testDateTime2");
     System.out.println("==================================================");
 
-    JSONObject json = _compiler.compile("SELECT * " + "FROM cars " + "WHERE time < 2012-01-02");
+    String bql = "SELECT * " + "FROM cars " + "WHERE time < 2012-01-02";
+    JSONObject json = _compiler.compile(bql);
 
     long timeStamp = json.getJSONObject("filter").getJSONObject("range").getJSONObject("time")
         .getLong("to");
     long expected = new SimpleDateFormat("yyyy-MM-dd").parse("2012-01-02").getTime();
+    assertEquals(timeStamp, expected);
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    timeStamp = Long.parseLong(thriftRequest.getFilter().getRangeFilter().getEndValue());
     assertEquals(timeStamp, expected);
   }
 
@@ -858,8 +1104,9 @@ public class TestBQL {
     System.out.println("testDateTime3");
     System.out.println("==================================================");
 
-    JSONObject json = _compiler.compile("SELECT * \n" + "FROM cars \n"
-        + "WHERE time > 2012-01-02 AND time <= 2012/01/31 \n" + "  AND color = 'red'");
+    String bql = "SELECT * \n" + "FROM cars \n"
+        + "WHERE time > 2012-01-02 AND time <= 2012/01/31 \n" + "  AND color = 'red'";
+    JSONObject json = _compiler.compile(bql);
 
     JSONObject timeRange = json.getJSONObject("filter").getJSONArray("and").getJSONObject(1)
         .getJSONObject("range");
@@ -868,9 +1115,16 @@ public class TestBQL {
     long expectedFromTime = new SimpleDateFormat("yyyy-MM-dd").parse("2012-01-02").getTime();
     assertEquals(fromTime, expectedFromTime);
     assertFalse(timeRange.getJSONObject("time").getBoolean("include_lower"));
-
-    assertEquals(fromTime, expectedFromTime);
     assertTrue(timeRange.getJSONObject("time").getBoolean("include_upper"));
+
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    fromTime = Long.parseLong(thriftRequest.getFilter().getBooleanFilter().getFilters().get(1)
+        .getFilter().getRangeFilter().getStartValue());
+    assertEquals(fromTime, expectedFromTime);
+    assertFalse(thriftRequest.getFilter().getBooleanFilter().getFilters().get(1)
+        .getFilter().getRangeFilter().isStartClosed());
+    assertTrue(thriftRequest.getFilter().getBooleanFilter().getFilters().get(1)
+        .getFilter().getRangeFilter().isEndClosed());
   }
 
   @Test
@@ -878,12 +1132,16 @@ public class TestBQL {
     System.out.println("testUID");
     System.out.println("==================================================");
 
-    JSONObject json = _compiler.compile("SELECT * " + "FROM cars " + "WHERE _uid IN (123, 124)");
+    String bql = "SELECT * " + "FROM cars " + "WHERE _uid IN (123, 124)";
+    JSONObject json = _compiler.compile(bql);
     JSONObject expected = new JSONObject(
         "{\"filter\":{\"terms\":{\"_uid\":{\"values\":[123,124],\"excludes\":[],\"operator\":\"or\"}}},\"meta\":{\"select_list\":[\"*\"]}}");
-
-    System.out.println(json);
     assertTrue(_comp.isEquals(json, expected));
+
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    assertEquals(
+        "Request(filter:Filter(termFilter:TermFilter(field:_uid, values:[123, 124], occur:SHOULD)))",
+        thriftRequest.toString());
   }
 
   @Test
@@ -891,32 +1149,51 @@ public class TestBQL {
     System.out.println("testLongValue");
     System.out.println("==================================================");
 
-    JSONObject json = _compiler.compile("SELECT * " + "FROM cars "
-        + "WHERE long_id IN (5497057336205783040)");
+    String bql = "SELECT * " + "FROM cars " + "WHERE long_id IN (5497057336205783040)";
+    JSONObject json = _compiler.compile(bql);
     JSONObject expected = new JSONObject(
         "{\"filter\":{\"terms\":{\"long_id\":{\"values\":[5497057336205783040],\"excludes\":[],\"operator\":\"or\"}}},\"meta\":{\"select_list\":[\"*\"]}}");
     assertTrue(_comp.isEquals(json, expected));
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    assertEquals(
+        "Request(filter:Filter(termFilter:TermFilter(field:long_id, values:[5497057336205783040], occur:SHOULD)))",
+        thriftRequest.toString());
   }
 
-  @SuppressWarnings("unused")
   @Test
   public void testCorrectStatement() throws Exception {
     System.out.println("testCorrectStatement");
     System.out.println("==================================================");
     // compile the statement
 
-    JSONObject json = _compiler.compile("SELECT color, year " + "FROM cars "
+    String bql = "SELECT color, year " + "FROM cars "
         + "WHERE QUERY IS \"hello\" " + "  AND color IN (\"red\", \"blue\") EXCEPT ('red') "
-        + "  AND category = 'sedan' WITH ('aaa':'111', 'bbb':'222', 'ccc':'333') "
-        + "  AND year NOT BETWEEN 1999 AND 2000");
-
-    // for (int i = 0; i < ast.getChildCount(); ++i)
-    // {
-    // System.out.print(ast.getChild(i).getText() + " -- ");
-    // }
-    // check AST structure
-    // assertEquals(BQLParser.SELECT, ast.getChild(0).getType());
-    // assertEquals(BQLParser.STAR, ast.getChild(1).getType());
+        + "  AND category = 'sedan' AND year NOT BETWEEN 1999 AND 2000";
+    JSONObject json = _compiler.compile(bql);
+    JSONObject expected = new JSONObject(
+        "{\"filter\":{\"and\":[{\"terms\":{\"color\":{\"excludes\":[\"red\"],\"operator\":\"or\",\"values\":[\"red\",\"blue\"]}}},"
+            +
+            "{\"term\":{\"category\":{\"value\":\"sedan\"}}}," +
+            "{\"or\":[{\"range\":{\"year\":{\"include_upper\":false,\"to\":1999}}},{\"range\":{\"year\":{\"from\":2000,\"include_lower\":false}}}]}]},"
+            +
+            "\"meta\":{\"select_list\":[\"color\",\"year\"]},\"query\":{\"query_string\":{\"query\":\"hello\"}}}");
+    assertTrue(_comp.isEquals(json, expected));
+    assertTrue(_comp.isEquals(json, expected));
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    assertEquals(
+        "Request(query:Query(stringQuery:StringQuery(query:hello, occur:SHOULD)), " +
+            "filter:Filter(booleanFilter:BooleanFilter(filters:[" +
+            "BooleanSubFilter(occur:MUST, filter:Filter(termFilter:" +
+            "TermFilter(field:color, values:[red, blue], excludes:[red], occur:SHOULD))), " +
+            "BooleanSubFilter(occur:MUST, filter:Filter(termFilter:" +
+            "TermFilter(field:category, values:[sedan], occur:MUST))), " +
+            "BooleanSubFilter(occur:MUST, filter:Filter(booleanFilter:" +
+            "BooleanFilter(filters:[BooleanSubFilter(occur:SHOULD, filter:Filter(rangeFilter:" +
+            "RangeFilter(field:year, startValue:null, endValue:1999, startClosed:false, endClosed:false))), "
+            +
+            "BooleanSubFilter(occur:SHOULD, filter:Filter(rangeFilter:" +
+            "RangeFilter(field:year, startValue:2000, endValue:null, startClosed:false, endClosed:false)))])))])))",
+        thriftRequest.toString());
   }
 
   @Test
@@ -924,11 +1201,16 @@ public class TestBQL {
     System.out.println("testNullPred1");
     System.out.println("==================================================");
 
-    JSONObject json = _compiler.compile("SELECT * " + "FROM cars " + "WHERE price IS NOT NULL");
-
+    String bql = "SELECT * " + "FROM cars " + "WHERE price IS NOT NULL";
+    JSONObject json = _compiler.compile(bql);
     JSONObject expected = new JSONObject(
         "{\"filter\":{\"bool\":{\"must_not\":{\"isNull\":\"price\"}}},\"meta\":{\"select_list\":[\"*\"]}}");
     assertTrue(_comp.isEquals(json, expected));
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    assertEquals(
+        "Request(filter:Filter(booleanFilter:BooleanFilter(filters:[" +
+            "BooleanSubFilter(occur:MUST_NOT, filter:Filter(nullFilter:NullFilter(field:price)))])))",
+        thriftRequest.toString());
   }
 
   @Test
@@ -936,11 +1218,15 @@ public class TestBQL {
     System.out.println("testNullPred2");
     System.out.println("==================================================");
 
-    JSONObject json = _compiler.compile("SELECT * " + "FROM cars " + "WHERE price IS NULL");
-
+    String bql = "SELECT * " + "FROM cars " + "WHERE price IS NULL";
+    JSONObject json = _compiler.compile(bql);
     JSONObject expected = new JSONObject(
         "{\"filter\":{\"isNull\":\"price\"},\"meta\":{\"select_list\":[\"*\"]}}");
     assertTrue(_comp.isEquals(json, expected));
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    assertEquals(
+        "Request(filter:Filter(nullFilter:NullFilter(field:price)))",
+        thriftRequest.toString());
   }
 
   @Test
@@ -1135,16 +1421,21 @@ public class TestBQL {
     System.out.println("testRelevanceModelExample1");
     System.out.println("==================================================");
 
-    JSONObject json = _compiler.compile("SELECT * " + "FROM cars " + "WHERE color = 'red' "
+    String bql = "SELECT * " + "FROM cars " + "WHERE color = 'red' "
         + "USING RELEVANCE MODEL my_model (thisYear:2001, goodYear:[1996]) "
         + "  DEFINED AS (int thisYear, IntOpenHashSet goodYear) " + "  BEGIN "
         + "    if (goodYear.contains(year)) " + "      return (float)Math.exp(10d); "
         + "    if (year == thisYear) " + "      return 87f; " + "    return _INNER_SCORE; "
-        + "  END " + "ORDER BY relevance");
+        + "  END " + "ORDER BY relevance";
+    JSONObject json = _compiler.compile(bql);
 
     JSONObject expected = new JSONObject(
         "{\"sort\":[\"relevance\"],\"query\":{\"query_string\":{\"query\":\"\",\"relevance\":{\"model\":{\"function_params\":[\"thisYear\",\"goodYear\",\"year\",\"_INNER_SCORE\"],\"facets\":{\"int\":[\"year\"]},\"variables\":{\"set_int\":[\"goodYear\"],\"int\":[\"thisYear\"]},\"function\":\"if (goodYear.contains(year))       return (float)Math.exp(10d);     if (year == thisYear)       return 87f;     return _INNER_SCORE;\"},\"values\":{\"thisYear\":2001,\"goodYear\":[1996]}}}},\"filter\":{\"term\":{\"color\":{\"value\":\"red\"}}},\"meta\":{\"select_list\":[\"*\"]}}");
     assertTrue(_comp.isEquals(json, expected));
+    Request thriftRequest = _compiler.compileToThriftRequest(bql);
+    assertEquals("Request(filter:Filter(termFilter:TermFilter(field:color, values:[red], occur:MUST)), " +
+            "sortFields:[SortField(mode:SCORE)])",
+        thriftRequest.toString());
   }
 
   @Test

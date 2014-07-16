@@ -4,14 +4,22 @@ import bql.BQLBaseListener;
 import bql.BQLBaseVisitor;
 import bql.BQLLexer;
 import bql.BQLParser;
+import bql.api.BooleanClauseOccur;
+import bql.api.BooleanFilter;
+import bql.api.BooleanSubFilter;
 import bql.api.FacetParam;
 import bql.api.FacetSortMode;
+import bql.api.Filter;
+import bql.api.NullFilter;
 import bql.api.PagingParam;
 import bql.api.Query;
+import bql.api.QueryFilter;
+import bql.api.RangeFilter;
 import bql.api.Request;
 import bql.api.SortField;
 import bql.api.SortMode;
 import bql.api.StringQuery;
+import bql.api.TermFilter;
 import bql.api.WildcardQuery;
 import bql.util.BQLParserUtils;
 import bql.util.JSONUtil.FastJSONArray;
@@ -155,7 +163,7 @@ public class BQLCompilerAnalyzer extends BQLBaseListener {
     return jsonProperty.get(node);
   }
 
-  public Object getThriftRequest() {
+  public Request getThriftRequest() {
     return thriftRequest;
   }
 
@@ -327,6 +335,132 @@ public class BQLCompilerAnalyzer extends BQLBaseListener {
       wildcardQuery.setQuery(query);
       wildcardQuery.setField(field);
       return new Query().setWildcardQuery(wildcardQuery);
+    }
+    // don't support other types now
+    return null;
+  }
+
+  private Filter extractFilter(JSONObject jsonFilter) throws JSONException {
+    Iterator<String> iter = jsonFilter.keys();
+    if (!iter.hasNext()) {
+      return null;
+    }
+
+    String type = iter.next();
+    if (type.equalsIgnoreCase("and") || type.equalsIgnoreCase("or")) {
+      JSONArray jsonSubFilters = jsonFilter.getJSONArray(type);
+      BooleanFilter booleanFilter = new BooleanFilter();
+      BooleanClauseOccur occur = type.equalsIgnoreCase("and") ?
+          BooleanClauseOccur.MUST :
+          BooleanClauseOccur.SHOULD;
+      for (int i = 0; i < jsonSubFilters.length(); ++i) {
+        Filter subFilter = extractFilter(jsonSubFilters.getJSONObject(i));
+        if (subFilter == null) {
+          continue;
+        }
+        BooleanSubFilter booleanSubFilter = new BooleanSubFilter();
+        booleanSubFilter.setFilter(subFilter);
+        booleanSubFilter.setOccur(occur);
+        booleanFilter.addToFilters(booleanSubFilter);
+      }
+      if (booleanFilter.getFiltersSize() == 0) {
+        return null;
+      }
+      return new Filter().setBooleanFilter(booleanFilter);
+    }
+
+    if (type.equalsIgnoreCase("query")) {
+      Query query = extractQuery(jsonFilter.getJSONObject(type));
+      QueryFilter queryFilter = new QueryFilter().setQuery(query);
+      return new Filter().setQueryFilter(queryFilter);
+    }
+
+    if (type.equalsIgnoreCase("bool")) {
+      JSONObject jsonBooleanFilter = jsonFilter.getJSONObject(type);
+      Iterator<String> fieldIter = jsonBooleanFilter.keys();
+      String mode = fieldIter.next();
+      // bool filter mode must be "must_not"
+      if (!mode.equalsIgnoreCase("must_not")) {
+        return null;
+      }
+      Filter mustNotFilter = extractFilter(jsonBooleanFilter.getJSONObject(mode));
+      if (mustNotFilter == null) {
+        return null;
+      }
+      BooleanSubFilter booleanSubFilter = new BooleanSubFilter();
+      booleanSubFilter.setFilter(mustNotFilter);
+      booleanSubFilter.setOccur(BooleanClauseOccur.MUST_NOT);
+      BooleanFilter booleanFilter = new BooleanFilter();
+      booleanFilter.addToFilters(booleanSubFilter);
+      return new Filter().setBooleanFilter(booleanFilter);
+    }
+
+    if (type.equalsIgnoreCase("term")) {
+      JSONObject jsonTermFilter = jsonFilter.getJSONObject(type);
+      Iterator<String> fieldIter = jsonTermFilter.keys();
+      String field = fieldIter.next();
+      String value = jsonTermFilter.getJSONObject(field).optString("value");
+      TermFilter termFilter = new TermFilter();
+      termFilter.setField(field);
+      termFilter.addToValues(value);
+      termFilter.setOccur(BooleanClauseOccur.MUST);
+      return new Filter().setTermFilter(termFilter);
+    }
+
+    if (type.equalsIgnoreCase("terms")) {
+      JSONObject jsonTermFilter = jsonFilter.getJSONObject(type);
+      Iterator<String> fieldIter = jsonTermFilter.keys();
+      String field = fieldIter.next();
+      JSONObject valuesAndExcludes = jsonTermFilter.getJSONObject(field);
+      TermFilter termFilter = new TermFilter();
+      termFilter.setField(field);
+
+      JSONArray values = valuesAndExcludes.getJSONArray("values");
+      for (int i = 0; i < values.length(); ++i) {
+        termFilter.addToValues(values.optString(i));
+      }
+      JSONArray excludes = valuesAndExcludes.getJSONArray("excludes");
+      for (int i = 0; i < excludes.length(); ++i) {
+        termFilter.addToExcludes(excludes.optString(i));
+      }
+      if (termFilter.getValuesSize() == 0 && termFilter.getExcludesSize() == 0) {
+        return null;
+      }
+      String operator = valuesAndExcludes.getString("operator");
+      if (operator.equalsIgnoreCase("and")) {
+        termFilter.setOccur(BooleanClauseOccur.MUST);
+      } else {
+        termFilter.setOccur(BooleanClauseOccur.SHOULD);
+      }
+      return new Filter().setTermFilter(termFilter);
+    }
+
+    if (type.equalsIgnoreCase("range")) {
+      JSONObject jsonRangeFilter = jsonFilter.getJSONObject(type);
+      Iterator<String> fieldIter = jsonRangeFilter.keys();
+      String field = fieldIter.next();
+      JSONObject jsonRange = jsonRangeFilter.getJSONObject(field);
+      String from = jsonRange.optString("from", null);
+      boolean includeLower = jsonRange.optBoolean("include_lower", false);
+      String to = jsonRange.optString("to", null);
+      boolean includeUpper = jsonRange.optBoolean("include_upper", false);
+      if (from == null && to == null) {
+        return null;
+      }
+      RangeFilter rangeFilter = new RangeFilter();
+      rangeFilter.setField(field);
+      rangeFilter.setStartValue(from);
+      rangeFilter.setStartClosed(includeLower);
+      rangeFilter.setEndValue(to);
+      rangeFilter.setEndClosed(includeUpper);
+      return new Filter().setRangeFilter(rangeFilter);
+    }
+
+    if (type.equalsIgnoreCase("isNull")) {
+      String field = jsonFilter.getString(type);
+      NullFilter nullFilter = new NullFilter();
+      nullFilter.setField(field);
+      return new Filter().setNullFilter(nullFilter);
     }
     // don't support other types now
     return null;
@@ -720,7 +854,8 @@ public class BQLCompilerAnalyzer extends BQLBaseListener {
         JSONObject f = filter.optJSONObject("filter");
         if (f != null) {
           jsonObj.put("filter", f);
-          System.out.println("filter:" + filter);
+          Filter thriftFilter = extractFilter(f);
+          thriftRequest.setFilter(thriftFilter);
         }
       }
 

@@ -6,20 +6,6 @@ enum BooleanClauseOccur {
   MUST_NOT,
 }
 
-struct TermFilter {
-  1: required string field
-  2: optional list<string> values
-  3: optional list<string> excludes
-}
-
-struct RangeFilter {
-  1: required string field
-  3: required string startValue
-  4: required string endValue
-  5: required bool startClosed
-  6: required bool endClosed
-}
-
 struct StringQuery {
   1: required string query
   2: optional list<string> fields
@@ -40,6 +26,25 @@ struct QueryFilter {
   1: required Query query
 }
 
+struct TermFilter {
+  1: required string field
+  2: optional list<string> values
+  3: optional list<string> excludes
+  4: optional BooleanClauseOccur occur = BooleanClauseOccur.SHOULD
+}
+
+struct RangeFilter {
+  1: required string field
+  3: required string startValue
+  4: required string endValue
+  5: required bool startClosed
+  6: required bool endClosed
+}
+
+struct NullFilter {
+  1: required string field
+}
+
 // pre-defintion
 struct BooleanFilter {
 }
@@ -48,7 +53,8 @@ struct Filter {
   1: optional QueryFilter queryFilter
   2: optional TermFilter termFilter
   3: optional RangeFilter rangeFilter
-  4: optional BooleanFilter booleanFilter
+  4: optional NullFilter nullFilter
+  5: optional BooleanFilter booleanFilter
 }
 
 struct BooleanSubFilter {
